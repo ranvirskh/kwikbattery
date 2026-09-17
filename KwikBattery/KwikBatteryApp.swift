@@ -73,6 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         BatteryMonitor.shared.stop()
+        BluetoothDeviceMonitor.shared.stop()
+        AppEnergyMonitor.shared.setActive(false)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

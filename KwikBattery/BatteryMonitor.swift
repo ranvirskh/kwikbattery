@@ -58,7 +58,12 @@ final class BatteryMonitor: ObservableObject {
     private var runLoopSource: CFRunLoopSource?
     private var pollCancellable: AnyCancellable?
     /// Background refresh rate vs. the rate while the dropdown is open.
-    private let idleInterval: TimeInterval = 30
+    /// While the dropdown is closed nothing on screen changes except the menu
+    /// bar percentage, and IOPSNotificationCreateRunLoopSource already wakes us
+    /// the instant the charge level or charger state changes. So the idle timer
+    /// is only a safety net (for values that change without an IOPS event, like
+    /// temperature and battery health), not the main update path.
+    private let idleInterval: TimeInterval = 300
     // 2 s rather than 1 s: each refresh copies the whole AppleSmartBattery
     // property table and makes up to 7 SMC syscalls, so this roughly halves
     // the syscall volume while the readings still feel live.

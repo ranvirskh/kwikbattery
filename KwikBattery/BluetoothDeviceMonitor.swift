@@ -81,20 +81,23 @@ final class BluetoothDeviceMonitor: ObservableObject {
 
     private init() {}
 
+    /// No background timer on purpose: accessory levels are only shown inside
+    /// the dropdown, and every refresh forks `system_profiler` (~0.5–1 s).
+    /// `refreshIfStale()` runs when the popover opens, which is the only moment
+    /// the numbers are actually looked at.
     func start() {
         refresh()
-        // 10 minutes instead of 2: each refresh forks system_profiler
-        // (~0.5–1 s). refreshIfStale() already re-syncs the moment the popover
-        // opens, so the background cadence can be loose without the user
-        // noticing stale levels where it matters.
-        timerCancellable = Timer.publish(every: 600, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in self?.refresh() }
+    }
+
+    /// Stops any pending work (called when the app quits).
+    func stop() {
+        timerCancellable?.cancel()
+        timerCancellable = nil
     }
 
     /// Called when the popover opens; avoids re-running system_profiler constantly.
     func refreshIfStale() {
-        if Date().timeIntervalSince(lastRefresh) > 20 {
+        if Date().timeIntervalSince(lastRefresh) > 15 {
             refresh()
         }
     }

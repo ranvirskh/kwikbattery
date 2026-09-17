@@ -107,6 +107,7 @@ struct PanelSection<Content: View>: View {
 
 /// Rounded progress bar that animates to its value, with optional quarter ticks.
 struct LevelBar: View {
+    @EnvironmentObject private var budget: AnimationBudget
     let fraction: Double
     let tint: Color
     var height: CGFloat = 8
@@ -137,12 +138,13 @@ struct LevelBar: View {
         .frame(height: height)
         .onAppear {
             shown = 0
-            withAnimation(.spring(response: 1.0, dampingFraction: 0.85).delay(0.08)) {
+            withAnimation(budget.stage.transition?.delay(0.08)) {
                 shown = clamp(fraction)
             }
         }
         .onChange(of: fraction) {
-            withAnimation(.spring(response: 0.7, dampingFraction: 0.85)) {
+            // nil transition (after the wind-down) jumps straight to the value.
+            withAnimation(budget.stage.transition) {
                 shown = clamp(fraction)
             }
         }
@@ -156,6 +158,7 @@ struct LevelBar: View {
 // MARK: - Metric tile (monospaced electrical values)
 
 struct MetricTile: View {
+    @EnvironmentObject private var budget: AnimationBudget
     let label: String
     let value: String
     var unit: String = ""
@@ -184,7 +187,7 @@ struct MetricTile: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
-        .animation(.snappy, value: value)
+        .animation(budget.stage.transition, value: value)
     }
 }
 
@@ -263,6 +266,7 @@ struct StatusBadge: View {
 // MARK: - Compact info tile
 
 struct InfoTile<Footer: View>: View {
+    @EnvironmentObject private var budget: AnimationBudget
     let icon: String
     let label: String
     let value: String
@@ -299,7 +303,7 @@ struct InfoTile<Footer: View>: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .contentTransition(.numericText())
-                .animation(.snappy, value: value)
+                .animation(budget.stage.transition, value: value)
             footer()
         }
         .padding(6)

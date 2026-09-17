@@ -17,6 +17,7 @@
 import SwiftUI
 
 struct PowerElectricalView: View {
+    @EnvironmentObject private var budget: AnimationBudget
     let info: BatteryInfo
 
     private let green = Color(red: 0.26, green: 0.84, blue: 0.42)
@@ -65,7 +66,7 @@ struct PowerElectricalView: View {
                         Text(currentText)
                             .font(PanelFont.metric(14))
                             .contentTransition(.numericText())
-                            .animation(.snappy, value: currentText)
+                            .animation(budget.stage.transition, value: currentText)
                         if let amps = info.amperage, abs(amps) >= 0.005 {
                             Image(systemName: amps >= 0 ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
                                 .font(.system(size: 12, weight: .semibold))
@@ -229,7 +230,8 @@ struct PowerElectricalView: View {
             Image(systemName: "bolt.fill")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(green)
-                .symbolEffect(.pulse, options: .repeating.speed(0.4))
+                // Pulsing stops with the rest of the motion.
+                .symbolEffect(.pulse, options: .repeating.speed(0.4), isActive: budget.stage == .full)
         case .discharging:
             BatteryGlyph(fraction: Double(info.percentage) / 100.0, tint: info.levelColor)
                 .scaleEffect(0.8)
@@ -297,6 +299,8 @@ struct FlowEndpoint: Identifiable, Equatable {
 }
 
 struct SankeyFlowView: View {
+    @EnvironmentObject private var budget: AnimationBudget
+
     let sourceIcon: String?
     let sourceTitle: String
     let sourceSubtitle: String?
@@ -307,10 +311,6 @@ struct SankeyFlowView: View {
     private let boxWidth: CGFloat = 46
     private let gap: CGFloat = 4
 
-    /// How long after opening the animation stays at full frame rate.
-    private let smoothWindow: TimeInterval = 15
-
-    @State private var isSmooth = true
 
     var body: some View {
         GeometryReader { geo in
@@ -340,37 +340,25 @@ struct SankeyFlowView: View {
                         .position(layout.labelPoint(index))
                 }
             }
-            .animation(.spring(response: 0.6, dampingFraction: 0.85), value: destinations.map { $0.id })
+            .animation(budget.stage.transition, value: destinations.map { $0.id })
         }
     }
 
     // MARK: Ribbons
 
     private func ribbons(layout: SankeyLayout) -> some View {
-        // Smooth while you're actually looking (the first `smoothWindow`
-        // seconds after the popover opens), then drop to a trickle. The
-        // shimmer has a 5-second period and is purely decorative, so once the
-        // panel has been sitting open a while, a high frame rate would burn
-        // CPU/GPU (and battery) for something nobody is watching any more.
-        TimelineView(.animation(minimumInterval: 1.0 / frameRate, paused: false)) { timeline in
+        // Frame rate (and whether we draw at all) comes from the shared
+        // AnimationBudget: 60 fps for the first 15 s, 8 fps until 20 s, then
+        // fully paused. `paused` stops TimelineView from scheduling any
+        // further redraws, so a panel left open costs nothing to display.
+        TimelineView(.animation(minimumInterval: 1.0 / budget.stage.frameRate,
+                                paused: !budget.stage.isAnimating)) { timeline in
             Canvas { context, size in
                 drawRibbons(context: &context, size: size, layout: layout,
                             time: timeline.date.timeIntervalSinceReferenceDate)
             }
         }
         .allowsHitTesting(false)
-        // Runs each time the view appears and is cancelled when it goes away,
-        // so every fresh open of the popover gets its smooth window back.
-        .task {
-            isSmooth = true
-            try? await Task.sleep(nanoseconds: UInt64(smoothWindow * 1_000_000_000))
-            isSmooth = false
-        }
-    }
-
-    /// 60 fps while freshly opened, then the bare minimum.
-    private var frameRate: Double {
-        isSmooth ? 60.0 : 4.0
     }
 
     private func drawRibbons(context: inout GraphicsContext, size: CGSize,

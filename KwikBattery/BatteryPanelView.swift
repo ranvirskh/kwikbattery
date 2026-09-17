@@ -12,6 +12,7 @@ struct BatteryPanelView: View {
     @EnvironmentObject private var monitor: BatteryMonitor
     @EnvironmentObject private var devices: BluetoothDeviceMonitor
     @EnvironmentObject private var energy: AppEnergyMonitor
+    @EnvironmentObject private var budget: AnimationBudget
     @AppStorage(SettingsKey.useFahrenheit) private var useFahrenheit = SettingsDefault.useFahrenheit
 
     @AppStorage("panel.powerExpanded") private var powerExpanded = true
@@ -147,7 +148,7 @@ struct BatteryPanelView: View {
                         .font(PanelFont.title(15))
                         .foregroundStyle(levelColor.opacity(0.8))
                 }
-                .animation(.snappy, value: info.percentage)
+                .animation(budget.stage.transition, value: info.percentage)
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
@@ -308,7 +309,7 @@ struct BatteryPanelView: View {
                     EnergyRow(app: app, icon: energy.icon(for: app))
                 }
             }
-            .animation(.easeInOut(duration: 0.3), value: energy.apps.map { $0.id })
+            .animation(budget.stage.transition, value: energy.apps.map { $0.id })
         }
     }
 
@@ -402,7 +403,7 @@ struct BatteryPanelView: View {
                 .blur(radius: 90)
                 .offset(x: 150, y: 260)
         }
-        .animation(.easeInOut(duration: 0.8), value: info.percentage)
+        .animation(budget.stage.transition, value: info.percentage)
         .ignoresSafeArea()
     }
 
@@ -481,6 +482,7 @@ struct BatteryPanelView: View {
 // MARK: - Device row
 
 private struct EnergyRow: View {
+    @EnvironmentObject private var budget: AnimationBudget
     let app: AppEnergyUsage
     let icon: NSImage
 
@@ -508,7 +510,7 @@ private struct EnergyRow: View {
                         .monospacedDigit()
                         .foregroundStyle(tint)
                         .contentTransition(.numericText())
-                        .animation(.snappy, value: Int(app.percent.rounded()))
+                        .animation(budget.stage.transition, value: Int(app.percent.rounded()))
                 }
                 LevelBar(fraction: app.percent / 100.0, tint: tint, height: 3)
             }

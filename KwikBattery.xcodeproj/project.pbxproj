@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		B3394B37BB91EDBC92A0CC24 /* AccessoryPowerReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1449A4E18D46E867C7A264BA /* AccessoryPowerReader.swift */; };
+		AECE879608265D12F27A183B /* AnimationBudget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D2FEC58830F9D9A3868F20E /* AnimationBudget.swift */; };
 		4EAC76C1E28B48FAD11F7B3A /* AppEnergyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 386C92EEDE9D68A932305F85 /* AppEnergyMonitor.swift */; };
 		958DE5692D930EA7986A7C18 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50A621CFD6CE1D9C1275ABB6 /* AppSettings.swift */; };
 		DFBF130B572C2D9D2C4FE329 /* AppleDeviceNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9AC9B512274E4D5C237FFD /* AppleDeviceNames.swift */; };
@@ -31,6 +32,7 @@
 /* Begin PBXFileReference section */
 		DDA32195803A135E1DFFC453 /* KwikBattery.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KwikBattery.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1449A4E18D46E867C7A264BA /* AccessoryPowerReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessoryPowerReader.swift; sourceTree = "<group>"; };
+		4D2FEC58830F9D9A3868F20E /* AnimationBudget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationBudget.swift; sourceTree = "<group>"; };
 		386C92EEDE9D68A932305F85 /* AppEnergyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnergyMonitor.swift; sourceTree = "<group>"; };
 		50A621CFD6CE1D9C1275ABB6 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		BC9AC9B512274E4D5C237FFD /* AppleDeviceNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleDeviceNames.swift; sourceTree = "<group>"; };
@@ -84,6 +86,7 @@
 			isa = PBXGroup;
 			children = (
 				1449A4E18D46E867C7A264BA /* AccessoryPowerReader.swift */,
+				4D2FEC58830F9D9A3868F20E /* AnimationBudget.swift */,
 				386C92EEDE9D68A932305F85 /* AppEnergyMonitor.swift */,
 				50A621CFD6CE1D9C1275ABB6 /* AppSettings.swift */,
 				BC9AC9B512274E4D5C237FFD /* AppleDeviceNames.swift */,
@@ -178,6 +181,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B3394B37BB91EDBC92A0CC24 /* AccessoryPowerReader.swift in Sources */,
+				AECE879608265D12F27A183B /* AnimationBudget.swift in Sources */,
 				4EAC76C1E28B48FAD11F7B3A /* AppEnergyMonitor.swift in Sources */,
 				958DE5692D930EA7986A7C18 /* AppSettings.swift in Sources */,
 				DFBF130B572C2D9D2C4FE329 /* AppleDeviceNames.swift in Sources */,

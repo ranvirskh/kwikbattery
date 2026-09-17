@@ -46,7 +46,9 @@ final class AppEnergyMonitor: ObservableObject {
         if active {
             guard timer == nil else { return }
             sample()
-            timer = Timer.publish(every: 4, on: .main, in: .common)
+            // 8 s rather than 4: every sample forks `top`, which costs far more
+            // than any drawing in the panel.
+            timer = Timer.publish(every: 8, on: .main, in: .common)
                 .autoconnect()
                 .sink { [weak self] _ in self?.sample() }
         } else {

@@ -33,6 +33,7 @@ struct KwikBatteryApp: App {
         Settings {
             SettingsView()
                 .environmentObject(NotificationManager.shared)
+                .environmentObject(AnimationBudget.shared)
         }
     }
 }

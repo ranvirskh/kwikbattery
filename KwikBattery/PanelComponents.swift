@@ -67,7 +67,7 @@ struct PanelSection<Content: View>: View {
                         .frame(width: 18, height: 18)
                         .background(Circle().fill(tint.gradient))
                     Text(title)
-                        .font(PanelFont.title(13))
+                        .font(PanelFont.title(12))
                         .foregroundStyle(Color.white.opacity(0.92))
                     Spacer()
                     Image(systemName: "chevron.up")
@@ -75,8 +75,8 @@ struct PanelSection<Content: View>: View {
                         .foregroundStyle(Color.white.opacity(0.45))
                         .rotationEffect(.degrees(isExpanded ? 0 : 180))
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -86,8 +86,8 @@ struct PanelSection<Content: View>: View {
                     .fill(Color.white.opacity(0.07))
                     .frame(height: 1)
                 content()
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
                     .transition(.opacity.combined(with: .offset(y: -6)))
             }
         }
@@ -161,7 +161,7 @@ struct MetricTile: View {
     var unit: String = ""
     var tint: Color = .white
     var alignment: HorizontalAlignment = .leading
-    var size: CGFloat = 14
+    var size: CGFloat = 12.5
 
     var body: some View {
         VStack(alignment: alignment, spacing: 2) {
@@ -293,7 +293,7 @@ struct InfoTile<Footer: View>: View {
                     .lineLimit(1)
             }
             Text(value)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .font(.system(size: 13.5, weight: .bold, design: .rounded))
                 .foregroundStyle(tint)
                 .monospacedDigit()
                 .lineLimit(1)
@@ -302,8 +302,8 @@ struct InfoTile<Footer: View>: View {
                 .animation(.snappy, value: value)
             footer()
         }
-        .padding(8)
-        .frame(maxWidth: .infinity, minHeight: 62, alignment: .topLeading)
+        .padding(6)
+        .frame(maxWidth: .infinity, minHeight: 50, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 11, style: .continuous)
                 .fill(Color.white.opacity(hovering ? 0.08 : 0.04))
@@ -317,12 +317,23 @@ struct InfoTile<Footer: View>: View {
     }
 }
 
-extension InfoTile where Footer == Text {
+/// One-line caption used under a tile's value.
+struct TileCaption: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 8.5, weight: .medium, design: .rounded))
+            .foregroundStyle(Color.white.opacity(0.5))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+    }
+}
+
+extension InfoTile where Footer == TileCaption {
     init(icon: String, label: String, value: String, tint: Color, caption: String) {
         self.init(icon: icon, label: label, value: value, tint: tint) {
-            Text(caption)
-                .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.5))
+            TileCaption(text: caption)
         }
     }
 }

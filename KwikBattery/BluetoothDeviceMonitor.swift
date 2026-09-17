@@ -83,7 +83,11 @@ final class BluetoothDeviceMonitor: ObservableObject {
 
     func start() {
         refresh()
-        timerCancellable = Timer.publish(every: 120, on: .main, in: .common)
+        // 10 minutes instead of 2: each refresh forks system_profiler
+        // (~0.5–1 s). refreshIfStale() already re-syncs the moment the popover
+        // opens, so the background cadence can be loose without the user
+        // noticing stale levels where it matters.
+        timerCancellable = Timer.publish(every: 600, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.refresh() }
     }

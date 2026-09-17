@@ -23,7 +23,7 @@ struct PowerElectricalView: View {
     private let blue  = Color(red: 0.42, green: 0.70, blue: 1.00)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 7) {
             metricsHeader
 
             HStack(spacing: 5) {
@@ -40,7 +40,7 @@ struct PowerElectricalView: View {
                            sourceTint: info.isPluggedIn ? Color.white : info.levelColor,
                            batteryFraction: Double(info.percentage) / 100.0,
                            destinations: destinations)
-                .frame(height: 128)
+                .frame(height: 96)
 
             statusFooter
         }
@@ -49,11 +49,11 @@ struct PowerElectricalView: View {
     // MARK: - Header metrics
 
     private var metricsHeader: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 5) {
             HStack(alignment: .top) {
-                MetricTile(label: "Power Usage", value: number(info.systemLoadWatts, "%.1f"), unit: "W", size: 17)
+                MetricTile(label: "Power Usage", value: number(info.systemLoadWatts, "%.1f"), unit: "W", size: 14)
                 MetricTile(label: "Voltage", value: number(info.voltage, "%.2f"), unit: "V",
-                           alignment: .trailing, size: 17)
+                           alignment: .trailing, size: 14)
             }
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -63,7 +63,7 @@ struct PowerElectricalView: View {
                         .foregroundStyle(Color.white.opacity(0.45))
                     HStack(spacing: 5) {
                         Text(currentText)
-                            .font(PanelFont.metric(17))
+                            .font(PanelFont.metric(14))
                             .contentTransition(.numericText())
                             .animation(.snappy, value: currentText)
                         if let amps = info.amperage, abs(amps) >= 0.005 {
@@ -205,7 +205,7 @@ struct PowerElectricalView: View {
             HStack(spacing: 5) {
                 footerIcon
                 Text(footerHeadline)
-                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.9))
                     .contentTransition(.numericText())
             }
@@ -304,8 +304,8 @@ struct SankeyFlowView: View {
     let batteryFraction: Double
     let destinations: [FlowEndpoint]
 
-    private let boxWidth: CGFloat = 58
-    private let gap: CGFloat = 6
+    private let boxWidth: CGFloat = 46
+    private let gap: CGFloat = 4
 
     var body: some View {
         GeometryReader { geo in
@@ -326,7 +326,7 @@ struct SankeyFlowView: View {
                         .transition(.opacity)
 
                     Text(destination.label)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(Color.white.opacity(0.95))
                         .shadow(color: Color.black.opacity(0.35), radius: 2, y: 1)
@@ -342,7 +342,10 @@ struct SankeyFlowView: View {
     // MARK: Ribbons
 
     private func ribbons(layout: SankeyLayout) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+        // 6 fps is plenty here: the shimmer has a 5-second period and the
+        // ripple is purely decorative, so redrawing the whole Canvas 30 times
+        // a second burns CPU/GPU (and battery) with no visible benefit.
+        TimelineView(.animation(minimumInterval: 1.0 / 6.0)) { timeline in
             Canvas { context, size in
                 let t = timeline.date.timeIntervalSinceReferenceDate
                 let fromX = layout.ribbonStartX
@@ -404,14 +407,14 @@ struct SankeyFlowView: View {
         VStack(spacing: 6) {
             if let sourceIcon {
                 Image(systemName: sourceIcon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .rotationEffect(.degrees(90))
                     .foregroundStyle(sourceTint)
             } else {
                 BatteryGlyph(fraction: batteryFraction, tint: sourceTint)
             }
             Text(sourceTitle)
-                .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                .font(.system(size: 10.5, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.white.opacity(0.9))
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
@@ -429,7 +432,7 @@ struct SankeyFlowView: View {
     private func destinationBox(_ destination: FlowEndpoint) -> some View {
         VStack(spacing: 2) {
             Image(safeSystemName: destination.icon, fallback: "bolt.fill")
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(destination.highlighted ? destination.tint : Color.white.opacity(0.8))
             Text(destination.caption)
                 .font(.system(size: 8, weight: .semibold, design: .rounded))
@@ -478,7 +481,7 @@ struct SankeyLayout {
         guard n > 0 else { return [] }
         let available = size.height - gap * CGFloat(n - 1)
         let total = watts.reduce(0, +)
-        let minimum: CGFloat = 20
+        let minimum: CGFloat = 16
         let raw: [CGFloat] = watts.map { w in
             guard total > 0 else { return available / CGFloat(n) }
             return Swift.max(minimum, available * CGFloat(w / total))

@@ -11,11 +11,13 @@ import AppKit
 struct BatteryPanelView: View {
     @EnvironmentObject private var monitor: BatteryMonitor
     @EnvironmentObject private var devices: BluetoothDeviceMonitor
+    @EnvironmentObject private var energy: AppEnergyMonitor
     @AppStorage(SettingsKey.useFahrenheit) private var useFahrenheit = SettingsDefault.useFahrenheit
 
     @AppStorage("panel.powerExpanded") private var powerExpanded = true
     @AppStorage("panel.infoExpanded") private var infoExpanded = true
     @AppStorage("panel.devicesExpanded") private var devicesExpanded = true
+    @AppStorage("panel.energyExpanded") private var energyExpanded = true
 
     @State private var refreshSpin = 0.0
 
@@ -25,7 +27,7 @@ struct BatteryPanelView: View {
     private var levelColor: Color { info.levelColor }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             topBar
 
             if info.hasBattery {
@@ -44,6 +46,12 @@ struct BatteryPanelView: View {
                     PowerElectricalView(info: info)
                 }
                 .appearEffect(delay: 0.10)
+
+                PanelSection("Top Energy Users", icon: "flame.fill", tint: Color.pink,
+                             isExpanded: $energyExpanded) {
+                    energyUsers
+                }
+                .appearEffect(delay: 0.12)
             } else {
                 noBatteryCard
             }
@@ -56,10 +64,10 @@ struct BatteryPanelView: View {
 
             footer
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-        .frame(width: 372)
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        .frame(width: 330)
         .fixedSize(horizontal: false, vertical: true)
         .background(background)
         .foregroundStyle(Color.white)
@@ -106,9 +114,9 @@ struct BatteryPanelView: View {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .interpolation(.high)
-                .frame(width: 20, height: 20)
+                .frame(width: 18, height: 18)
             Text("KwikBattery")
-                .font(PanelFont.title(14))
+                .font(PanelFont.title(13))
             Spacer()
             CircleIconButton(systemName: "arrow.clockwise", help: "Refresh", action: {
                 withAnimation(.easeInOut(duration: 0.6)) { refreshSpin += 360 }
@@ -127,7 +135,7 @@ struct BatteryPanelView: View {
             HStack(alignment: .center) {
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text("\(info.percentage)")
-                        .font(PanelFont.hero(40))
+                        .font(PanelFont.hero(32))
                         .monospacedDigit()
                         .foregroundStyle(
                             LinearGradient(colors: [levelColor, levelColor.opacity(0.75)],
@@ -136,7 +144,7 @@ struct BatteryPanelView: View {
                         .contentTransition(.numericText(value: Double(info.percentage)))
                         .shadow(color: levelColor.opacity(0.35), radius: 10)
                     Text("%")
-                        .font(PanelFont.title(18))
+                        .font(PanelFont.title(15))
                         .foregroundStyle(levelColor.opacity(0.8))
                 }
                 .animation(.snappy, value: info.percentage)
@@ -147,7 +155,7 @@ struct BatteryPanelView: View {
                                      tint: levelColor,
                                      isCharging: info.state == .charging)
                         Text(info.shortStatus)
-                            .font(PanelFont.body(12.5))
+                            .font(PanelFont.body(11.5))
                             .foregroundStyle(Color.white.opacity(0.9))
                     }
                     Text(info.adapterWatts.map { "\($0) W adapter" } ?? (info.isPluggedIn ? "Adapter connected" : "Unplugged"))
@@ -164,16 +172,16 @@ struct BatteryPanelView: View {
                         .tracking(0.8)
                         .foregroundStyle(Color.white.opacity(0.45))
                     Text(timeValue)
-                        .font(PanelFont.title(17))
+                        .font(PanelFont.title(15))
                         .monospacedDigit()
                         .contentTransition(.numericText())
                 }
             }
 
-            LevelBar(fraction: Double(info.percentage) / 100.0, tint: levelColor, height: 8, showTicks: true)
+            LevelBar(fraction: Double(info.percentage) / 100.0, tint: levelColor, height: 6, showTicks: true)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.white.opacity(0.05))
@@ -191,11 +199,11 @@ struct BatteryPanelView: View {
     // MARK: - Battery information (compact tile grid)
 
     private var batteryInformation: some View {
-        let columns = [GridItem(.flexible(), spacing: 6),
-                       GridItem(.flexible(), spacing: 6),
-                       GridItem(.flexible(), spacing: 6)]
-        return VStack(alignment: .leading, spacing: 6) {
-            LazyVGrid(columns: columns, spacing: 6) {
+        let columns = [GridItem(.flexible(), spacing: 5),
+                       GridItem(.flexible(), spacing: 5),
+                       GridItem(.flexible(), spacing: 5)]
+        return VStack(alignment: .leading, spacing: 5) {
+            LazyVGrid(columns: columns, spacing: 5) {
                 InfoTile(icon: healthGrade.icon, label: "Health",
                          value: info.healthPercent.map { String(format: "%.0f%%", $0) } ?? "—",
                          tint: healthGrade.color) {
@@ -273,6 +281,35 @@ struct BatteryPanelView: View {
         Rectangle()
             .fill(Color.white.opacity(0.07))
             .frame(height: 1)
+    }
+
+    // MARK: - Top energy users
+
+    @ViewBuilder
+    private var energyUsers: some View {
+        if energy.apps.isEmpty {
+            HStack(spacing: 6) {
+                if !energy.hasLoaded {
+                    ProgressView()
+                        .controlSize(.mini)
+                    Text("Measuring app energy use…")
+                } else {
+                    Image(systemName: "leaf.fill")
+                        .foregroundStyle(Color.green)
+                    Text("No apps are using noticeable energy.")
+                }
+            }
+            .font(PanelFont.caption(10))
+            .foregroundStyle(Color.white.opacity(0.55))
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            VStack(spacing: 5) {
+                ForEach(energy.apps) { app in
+                    EnergyRow(app: app, icon: energy.icon(for: app))
+                }
+            }
+            .animation(.easeInOut(duration: 0.3), value: energy.apps.map { $0.id })
+        }
     }
 
     // MARK: - Connected devices
@@ -443,6 +480,42 @@ struct BatteryPanelView: View {
 
 // MARK: - Device row
 
+private struct EnergyRow: View {
+    let app: AppEnergyUsage
+    let icon: NSImage
+
+    private var tint: Color {
+        if app.percent >= 40 { return Color.red }
+        if app.percent >= 20 { return Color.orange }
+        return Color(red: 0.42, green: 0.78, blue: 1.0)
+    }
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(nsImage: icon)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 16, height: 16)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(app.name)
+                        .font(PanelFont.body(11))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 4)
+                    Text("\(Int(app.percent.rounded()))%")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(tint)
+                        .contentTransition(.numericText())
+                        .animation(.snappy, value: Int(app.percent.rounded()))
+                }
+                LevelBar(fraction: app.percent / 100.0, tint: tint, height: 3)
+            }
+        }
+    }
+}
+
 private struct DeviceRow: View {
     let device: BluetoothDevice
 
@@ -485,14 +558,14 @@ private struct DeviceRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 9) {
             Image(safeSystemName: device.symbolName, fallback: "dot.radiowaves.left.and.right")
-                .font(.system(size: 14, weight: .regular))
+                .font(.system(size: 12, weight: .regular))
                 .foregroundStyle((level ?? 100) <= 20 ? tint : Color.white.opacity(0.75))
-                .frame(width: 20)
+                .frame(width: 16)
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(device.name)
-                        .font(PanelFont.body(12))
+                        .font(PanelFont.body(11))
                         .lineLimit(1)
                         .truncationMode(.tail)
                     if device.hasBudLevels {
@@ -521,7 +594,7 @@ private struct DeviceRow: View {
                 }
             }
         }
-        .padding(.vertical, 5)
+        .padding(.vertical, 3)
     }
 
     @ViewBuilder

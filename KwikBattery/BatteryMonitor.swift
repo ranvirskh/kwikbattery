@@ -59,7 +59,10 @@ final class BatteryMonitor: ObservableObject {
     private var pollCancellable: AnyCancellable?
     /// Background refresh rate vs. the rate while the dropdown is open.
     private let idleInterval: TimeInterval = 30
-    private let liveInterval: TimeInterval = 1
+    // 2 s rather than 1 s: each refresh copies the whole AppleSmartBattery
+    // property table and makes up to 7 SMC syscalls, so this roughly halves
+    // the syscall volume while the readings still feel live.
+    private let liveInterval: TimeInterval = 2
     private var isLive = false
 
     private init() {}

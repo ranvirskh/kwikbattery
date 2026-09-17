@@ -23,7 +23,7 @@ MODE="${1:-}"
 
 APP_NAME="KwikBattery"
 BUNDLE_ID="com.kwikbattery.KwikBattery"
-VERSION="1.1"
+VERSION="1.2"
 BUILD_NUMBER="1"
 MIN_MACOS="14.0"
 

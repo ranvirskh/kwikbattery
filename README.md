@@ -32,6 +32,10 @@ brew install libimobiledevice
 
 KwikBattery detects the tool on its own and shows your iPhone's model and battery level over USB or Wi-Fi.
 
+## Help test
+
+If you have an **Intel Mac** or an older Apple silicon model, please follow [TESTING.md](TESTING.md) and send the report.
+
 ## Build from source
 
 You only need Apple's Command Line Tools (`xcode-select --install`). Xcode isn't required.

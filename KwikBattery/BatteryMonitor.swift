@@ -115,14 +115,19 @@ final class BatteryMonitor: ObservableObject {
     nonisolated static func applyLiveSMC(to info: inout BatteryInfo) {
         let smc = SMCReader.shared
         guard smc.isAvailable else { return }
-        let live = smc.snapshot(referenceAmps: info.amperage)
+        let live = smc.snapshot(referenceAmps: info.amperage, referenceVolts: info.voltage)
 
         if let v = live.batteryVoltage { info.voltage = v }
         if let a = live.batteryCurrent {
             info.amperage = a
             if info.isPluggedIn && a > 0.05 { info.isCharging = true }
         }
-        if let p = live.batteryPower { info.batteryPowerMeasured = p }
+        if let p = live.batteryPower {
+            info.batteryPowerMeasured = p
+        } else if live.batteryVoltage != nil || live.batteryCurrent != nil {
+            // Intel: no battery-power key, so let batteryWatts use live V × A.
+            info.batteryPowerMeasured = nil
+        }
         if let p = live.systemPower { info.systemLoad = p }
 
         if info.isPluggedIn {

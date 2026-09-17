@@ -1,0 +1,331 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B3394B37BB91EDBC92A0CC24 /* AccessoryPowerReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1449A4E18D46E867C7A264BA /* AccessoryPowerReader.swift */; };
+		958DE5692D930EA7986A7C18 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50A621CFD6CE1D9C1275ABB6 /* AppSettings.swift */; };
+		DFBF130B572C2D9D2C4FE329 /* AppleDeviceNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC9AC9B512274E4D5C237FFD /* AppleDeviceNames.swift */; };
+		44009C525671C735D00284ED /* BatteryInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001C360C030104BB4C0E0E5 /* BatteryInfo.swift */; };
+		6E25ED4B9CCA1C572A38E4C8 /* BatteryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93334896EA6408070770CDF /* BatteryMonitor.swift */; };
+		A3183438614DE27C03F20C44 /* BatteryPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635C95DE95965515B6666F16 /* BatteryPanelView.swift */; };
+		ABA648D2BD96DC4DC6FB7658 /* BluetoothDeviceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBB0C97F81FEDA84ADB74294 /* BluetoothDeviceMonitor.swift */; };
+		34709F8070B87042D01C933E /* KwikBatteryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C087E5D265B75A132A00A7DD /* KwikBatteryApp.swift */; };
+		CB016DA789272C07F3979AB7 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13FE6295CEAC7DDC1CAF158 /* MenuBarController.swift */; };
+		50E491EAEB049E1FE2338370 /* MenuBarIconRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D27AA9F7E6149772D3FBA506 /* MenuBarIconRenderer.swift */; };
+		94A7163B7B6A5DA7B7F8DB7A /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F150B2896A4E6DA6A517594C /* NotificationManager.swift */; };
+		E19263B0A428417F61F89867 /* PanelComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4122C8DCDEA3CEFF3B987F0 /* PanelComponents.swift */; };
+		19DDCF562E937CC99D866FDE /* PowerFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3D051729E0AEEA5EAC2077A /* PowerFlowView.swift */; };
+		13123639A928E2759BEE00C6 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A21A6ED3D65973452F31DAC /* SettingsView.swift */; };
+		1D600CF5309BDCFA1B06DA42 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86296FB89BC8C99AA36221F9 /* SettingsWindowController.swift */; };
+		FCB5850EDDE2BE26460FD292 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8D1DF0B00DA0DE35AE5F3B /* Theme.swift */; };
+		CCA259F070871F36040978B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B333EF2524AA75A9AFDDCAB9 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		DDA32195803A135E1DFFC453 /* KwikBattery.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KwikBattery.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1449A4E18D46E867C7A264BA /* AccessoryPowerReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessoryPowerReader.swift; sourceTree = "<group>"; };
+		50A621CFD6CE1D9C1275ABB6 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		BC9AC9B512274E4D5C237FFD /* AppleDeviceNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleDeviceNames.swift; sourceTree = "<group>"; };
+		E001C360C030104BB4C0E0E5 /* BatteryInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryInfo.swift; sourceTree = "<group>"; };
+		F93334896EA6408070770CDF /* BatteryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryMonitor.swift; sourceTree = "<group>"; };
+		635C95DE95965515B6666F16 /* BatteryPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryPanelView.swift; sourceTree = "<group>"; };
+		EBB0C97F81FEDA84ADB74294 /* BluetoothDeviceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothDeviceMonitor.swift; sourceTree = "<group>"; };
+		C087E5D265B75A132A00A7DD /* KwikBatteryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KwikBatteryApp.swift; sourceTree = "<group>"; };
+		A13FE6295CEAC7DDC1CAF158 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
+		D27AA9F7E6149772D3FBA506 /* MenuBarIconRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarIconRenderer.swift; sourceTree = "<group>"; };
+		F150B2896A4E6DA6A517594C /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		E4122C8DCDEA3CEFF3B987F0 /* PanelComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelComponents.swift; sourceTree = "<group>"; };
+		A3D051729E0AEEA5EAC2077A /* PowerFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerFlowView.swift; sourceTree = "<group>"; };
+		3A21A6ED3D65973452F31DAC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		86296FB89BC8C99AA36221F9 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		7B8D1DF0B00DA0DE35AE5F3B /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		B333EF2524AA75A9AFDDCAB9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		4F868D906057D0462DBB747D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		47B89E85DD4610E3C15107B4 /* KwikBattery.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KwikBattery.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CCF61A16615593042C60D70F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		32B524EABFFCD26276857E78 = {
+			isa = PBXGroup;
+			children = (
+				10FE6DC4B7A4C77A3FA78090 /* KwikBattery */,
+				10BA20CC334764D0762E29D9 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		10BA20CC334764D0762E29D9 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DDA32195803A135E1DFFC453 /* KwikBattery.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		10FE6DC4B7A4C77A3FA78090 /* KwikBattery */ = {
+			isa = PBXGroup;
+			children = (
+				1449A4E18D46E867C7A264BA /* AccessoryPowerReader.swift */,
+				50A621CFD6CE1D9C1275ABB6 /* AppSettings.swift */,
+				BC9AC9B512274E4D5C237FFD /* AppleDeviceNames.swift */,
+				E001C360C030104BB4C0E0E5 /* BatteryInfo.swift */,
+				F93334896EA6408070770CDF /* BatteryMonitor.swift */,
+				635C95DE95965515B6666F16 /* BatteryPanelView.swift */,
+				EBB0C97F81FEDA84ADB74294 /* BluetoothDeviceMonitor.swift */,
+				C087E5D265B75A132A00A7DD /* KwikBatteryApp.swift */,
+				A13FE6295CEAC7DDC1CAF158 /* MenuBarController.swift */,
+				D27AA9F7E6149772D3FBA506 /* MenuBarIconRenderer.swift */,
+				F150B2896A4E6DA6A517594C /* NotificationManager.swift */,
+				E4122C8DCDEA3CEFF3B987F0 /* PanelComponents.swift */,
+				A3D051729E0AEEA5EAC2077A /* PowerFlowView.swift */,
+				3A21A6ED3D65973452F31DAC /* SettingsView.swift */,
+				86296FB89BC8C99AA36221F9 /* SettingsWindowController.swift */,
+				7B8D1DF0B00DA0DE35AE5F3B /* Theme.swift */,
+				B333EF2524AA75A9AFDDCAB9 /* Assets.xcassets */,
+				4F868D906057D0462DBB747D /* Info.plist */,
+				47B89E85DD4610E3C15107B4 /* KwikBattery.entitlements */,
+			);
+			path = KwikBattery;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2C67FC5C7AB75857F4460929 /* KwikBattery */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 39549974B680E92648B93644 /* Build configuration list for PBXNativeTarget "KwikBattery" */;
+			buildPhases = (
+				8FF1C2BCB8FCE1C3F8E717F4 /* Sources */,
+				CCF61A16615593042C60D70F /* Frameworks */,
+				ED4EE36C92542CB712B3C51D /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KwikBattery;
+			productName = KwikBattery;
+			productReference = DDA32195803A135E1DFFC453 /* KwikBattery.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D19FE356AC97346CE0C96FD3 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					2C67FC5C7AB75857F4460929 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = AE604B41EF8DF76C827B7597 /* Build configuration list for PBXProject "KwikBattery" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 32B524EABFFCD26276857E78;
+			productRefGroup = 10BA20CC334764D0762E29D9 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2C67FC5C7AB75857F4460929 /* KwikBattery */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		ED4EE36C92542CB712B3C51D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CCA259F070871F36040978B2 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8FF1C2BCB8FCE1C3F8E717F4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B3394B37BB91EDBC92A0CC24 /* AccessoryPowerReader.swift in Sources */,
+				958DE5692D930EA7986A7C18 /* AppSettings.swift in Sources */,
+				DFBF130B572C2D9D2C4FE329 /* AppleDeviceNames.swift in Sources */,
+				44009C525671C735D00284ED /* BatteryInfo.swift in Sources */,
+				6E25ED4B9CCA1C572A38E4C8 /* BatteryMonitor.swift in Sources */,
+				A3183438614DE27C03F20C44 /* BatteryPanelView.swift in Sources */,
+				ABA648D2BD96DC4DC6FB7658 /* BluetoothDeviceMonitor.swift in Sources */,
+				34709F8070B87042D01C933E /* KwikBatteryApp.swift in Sources */,
+				CB016DA789272C07F3979AB7 /* MenuBarController.swift in Sources */,
+				50E491EAEB049E1FE2338370 /* MenuBarIconRenderer.swift in Sources */,
+				94A7163B7B6A5DA7B7F8DB7A /* NotificationManager.swift in Sources */,
+				E19263B0A428417F61F89867 /* PanelComponents.swift in Sources */,
+				19DDCF562E937CC99D866FDE /* PowerFlowView.swift in Sources */,
+				13123639A928E2759BEE00C6 /* SettingsView.swift in Sources */,
+				1D600CF5309BDCFA1B06DA42 /* SettingsWindowController.swift in Sources */,
+				FCB5850EDDE2BE26460FD292 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F1CE02A38C9C6322DE1C0AC3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		54E89CCE35CAF87B0A7D7A98 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		F389F0A00ABF63321782678F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = KwikBattery/KwikBattery.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KwikBattery/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kwikbattery.KwikBattery;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		70C6823192152D0B8E11954D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = KwikBattery/KwikBattery.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = KwikBattery/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.kwikbattery.KwikBattery;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AE604B41EF8DF76C827B7597 /* Build configuration list for PBXProject "KwikBattery" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F1CE02A38C9C6322DE1C0AC3 /* Debug */,
+				54E89CCE35CAF87B0A7D7A98 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		39549974B680E92648B93644 /* Build configuration list for PBXNativeTarget "KwikBattery" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F389F0A00ABF63321782678F /* Debug */,
+				70C6823192152D0B8E11954D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D19FE356AC97346CE0C96FD3 /* Project object */;
+}

@@ -1,0 +1,555 @@
+//
+//  BatteryPanelView.swift
+//  KwikBattery
+//
+//  The dark dropdown shown from the menu bar.
+//
+
+import SwiftUI
+import AppKit
+
+struct BatteryPanelView: View {
+    @EnvironmentObject private var monitor: BatteryMonitor
+    @EnvironmentObject private var devices: BluetoothDeviceMonitor
+    @AppStorage(SettingsKey.useFahrenheit) private var useFahrenheit = SettingsDefault.useFahrenheit
+
+    @AppStorage("panel.powerExpanded") private var powerExpanded = true
+    @AppStorage("panel.infoExpanded") private var infoExpanded = true
+    @AppStorage("panel.devicesExpanded") private var devicesExpanded = true
+
+    @State private var refreshSpin = 0.0
+
+    let openSettings: () -> Void
+
+    private var info: BatteryInfo { monitor.info }
+    private var levelColor: Color { info.levelColor }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            topBar
+
+            if info.hasBattery {
+                heroCard
+                    .appearEffect()
+
+                PanelSection("Battery Information", icon: "info", tint: Color.blue,
+                             isExpanded: $infoExpanded) {
+                    batteryInformation
+                }
+                .appearEffect(delay: 0.05)
+
+                PanelSection("Power & Electrical", icon: "bolt.fill",
+                             tint: info.state == .charging ? Color.green : Color.orange,
+                             isExpanded: $powerExpanded) {
+                    PowerElectricalView(info: info)
+                }
+                .appearEffect(delay: 0.10)
+            } else {
+                noBatteryCard
+            }
+
+            PanelSection(devicesTitle, icon: "headphones", tint: Color.teal,
+                         isExpanded: $devicesExpanded) {
+                connectedDevices
+            }
+            .appearEffect(delay: 0.15)
+
+            footer
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .frame(width: 372)
+        .fixedSize(horizontal: false, vertical: true)
+        .background(background)
+        .foregroundStyle(Color.white)
+    }
+
+    private var devicesTitle: String {
+        let count = allDevices.count
+        return count == 0 ? "Connected Devices" : "Connected Devices (\(count))"
+    }
+
+    /// Bluetooth / iPhone devices plus anything the Mac is powering over USB.
+    private var allDevices: [BluetoothDevice] {
+        var list = devices.devices
+        for accessory in info.poweredAccessories {
+            let baseName = accessory.name.components(separatedBy: " · ").first ?? accessory.name
+            let lower = baseName.lowercased()
+            let isAppleMobile = lower.contains("iphone") || lower.contains("ipad")
+            if let index = list.firstIndex(where: { device in
+                (isAppleMobile && device.kind == .phone && device.connection == "USB")
+                    || device.name.lowercased() == lower
+                    || device.model?.lowercased() == lower
+            }) {
+                list[index].chargingWatts = accessory.watts
+            } else {
+                var device = BluetoothDevice(id: "usb-\(accessory.id)",
+                                             name: baseName,
+                                             kind: BluetoothDeviceMonitor.kind(name: baseName, minorType: ""),
+                                             mainLevel: nil,
+                                             leftLevel: nil,
+                                             rightLevel: nil,
+                                             caseLevel: nil)
+                device.connection = "USB"
+                device.chargingWatts = accessory.watts
+                list.append(device)
+            }
+        }
+        return list
+    }
+
+    // MARK: - Top bar
+
+    private var topBar: some View {
+        HStack(spacing: 7) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: 20, height: 20)
+            Text("KwikBattery")
+                .font(PanelFont.title(14))
+            Spacer()
+            CircleIconButton(systemName: "arrow.clockwise", help: "Refresh", action: {
+                withAnimation(.easeInOut(duration: 0.6)) { refreshSpin += 360 }
+                monitor.refresh()
+                devices.refresh()
+            })
+            .rotationEffect(.degrees(refreshSpin))
+            CircleIconButton(systemName: "gearshape.fill", help: "Settings", action: openSettings)
+        }
+    }
+
+    // MARK: - Hero card
+
+    private var heroCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center) {
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text("\(info.percentage)")
+                        .font(PanelFont.hero(40))
+                        .monospacedDigit()
+                        .foregroundStyle(
+                            LinearGradient(colors: [levelColor, levelColor.opacity(0.75)],
+                                           startPoint: .top, endPoint: .bottom)
+                        )
+                        .contentTransition(.numericText(value: Double(info.percentage)))
+                        .shadow(color: levelColor.opacity(0.35), radius: 10)
+                    Text("%")
+                        .font(PanelFont.title(18))
+                        .foregroundStyle(levelColor.opacity(0.8))
+                }
+                .animation(.snappy, value: info.percentage)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        BatteryGlyph(fraction: Double(info.percentage) / 100.0,
+                                     tint: levelColor,
+                                     isCharging: info.state == .charging)
+                        Text(info.shortStatus)
+                            .font(PanelFont.body(12.5))
+                            .foregroundStyle(Color.white.opacity(0.9))
+                    }
+                    Text(info.adapterWatts.map { "\($0) W adapter" } ?? (info.isPluggedIn ? "Adapter connected" : "Unplugged"))
+                        .font(PanelFont.caption(10))
+                        .foregroundStyle(Color.white.opacity(0.45))
+                }
+                .padding(.leading, 8)
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(timeTitle)
+                        .font(PanelFont.eyebrow(8))
+                        .tracking(0.8)
+                        .foregroundStyle(Color.white.opacity(0.45))
+                    Text(timeValue)
+                        .font(PanelFont.title(17))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                }
+            }
+
+            LevelBar(fraction: Double(info.percentage) / 100.0, tint: levelColor, height: 8, showTicks: true)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(colors: [levelColor.opacity(0.45), Color.white.opacity(0.06)],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing),
+                    lineWidth: 1
+                )
+        )
+    }
+
+    // MARK: - Battery information (compact tile grid)
+
+    private var batteryInformation: some View {
+        let columns = [GridItem(.flexible(), spacing: 6),
+                       GridItem(.flexible(), spacing: 6),
+                       GridItem(.flexible(), spacing: 6)]
+        return VStack(alignment: .leading, spacing: 6) {
+            LazyVGrid(columns: columns, spacing: 6) {
+                InfoTile(icon: healthGrade.icon, label: "Health",
+                         value: info.healthPercent.map { String(format: "%.0f%%", $0) } ?? "—",
+                         tint: healthGrade.color) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(healthGrade.label)
+                            .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                            .foregroundStyle(healthGrade.color.opacity(0.85))
+                        LevelBar(fraction: (info.healthPercent ?? 0) / 100.0, tint: healthGrade.color, height: 3)
+                    }
+                }
+
+                InfoTile(icon: "arrow.triangle.2.circlepath", label: "Cycles",
+                         value: info.cycleCount.map { "\($0)" } ?? "—",
+                         tint: cycleColor) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("of 1000")
+                            .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                            .foregroundStyle(Color.white.opacity(0.5))
+                        LevelBar(fraction: Double(info.cycleCount ?? 0) / 1000.0, tint: cycleColor, height: 3)
+                    }
+                }
+
+                InfoTile(icon: "thermometer.medium", label: "Temp",
+                         value: primaryTemperature,
+                         tint: temperatureGrade.color,
+                         caption: "\(secondaryTemperature) · \(temperatureGrade.label)")
+
+                InfoTile(icon: "battery.100percent", label: "Capacity",
+                         value: info.maxCapacity.map { "\($0)" } ?? "—",
+                         tint: Color.white,
+                         caption: info.designCapacity.map { "of \($0) mAh" } ?? "mAh")
+
+                InfoTile(icon: "powerplug.fill", label: "Adapter",
+                         value: info.adapterWatts.map { "\($0) W" } ?? (info.isPluggedIn ? "On" : "None"),
+                         tint: info.isPluggedIn ? Color.green : Color.white.opacity(0.6),
+                         caption: info.isPluggedIn ? (info.adapterName ?? "Connected") : "Unplugged")
+
+                if serviceNeeded {
+                    // Only surfaces when the battery actually needs attention.
+                    InfoTile(icon: "exclamationmark.triangle.fill",
+                             label: "Service",
+                             value: info.condition == "Normal" || info.condition == "Unknown" ? "Recommended" : info.condition,
+                             tint: Color.orange,
+                             caption: "Check with Apple")
+                } else {
+                    InfoTile(icon: "drop.fill", label: "Charge",
+                             value: info.currentCapacity.map { "\($0)" } ?? "\(info.percentage)%",
+                             tint: levelColor,
+                             caption: info.currentCapacity == nil ? " " : "mAh stored")
+                }
+            }
+
+            Text(healthAdvice)
+                .font(PanelFont.caption(10))
+                .foregroundStyle(Color.white.opacity(0.5))
+                .lineLimit(1)
+        }
+    }
+
+    private var cycleColor: Color {
+        let cycles = info.cycleCount ?? 0
+        if cycles >= 1000 { return Color.red }
+        if cycles >= 800 { return Color.orange }
+        return Color.purple
+    }
+
+    /// True when macOS flags the battery, or health has dropped below 80%.
+    private var serviceNeeded: Bool {
+        if info.condition != "Normal" && info.condition != "Unknown" { return true }
+        if let h = info.healthPercent, h < 80 { return true }
+        return false
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.07))
+            .frame(height: 1)
+    }
+
+    // MARK: - Connected devices
+
+    @ViewBuilder
+    private var connectedDevices: some View {
+        let list = allDevices
+        if list.isEmpty {
+            HStack(spacing: 8) {
+                if devices.isLoading && !devices.hasLoadedOnce {
+                    ProgressView()
+                        .controlSize(.mini)
+                    Text("Looking for devices…")
+                } else {
+                    Image(systemName: "dot.radiowaves.left.and.right")
+                        .foregroundStyle(Color.white.opacity(0.4))
+                    Text("No connected devices with battery or power info.")
+                }
+            }
+            .font(PanelFont.caption(10.5))
+            .foregroundStyle(Color.white.opacity(0.55))
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            VStack(spacing: 0) {
+                ForEach(Array(list.enumerated()), id: \.element.id) { index, device in
+                    if index > 0 {
+                        divider.padding(.leading, 30)
+                    }
+                    DeviceRow(device: device)
+                }
+            }
+        }
+    }
+
+    private var noBatteryCard: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "desktopcomputer")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Color.teal.gradient)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("No internal battery")
+                    .font(PanelFont.title(13))
+                Text("This Mac runs on wall power.")
+                    .font(PanelFont.caption(10.5))
+                    .foregroundStyle(Color.white.opacity(0.55))
+            }
+            Spacer()
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.05)))
+    }
+
+    // MARK: - Footer & background
+
+    private var footer: some View {
+        HStack {
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(levelColor)
+                    .frame(width: 6, height: 6)
+                    .shadow(color: levelColor, radius: 3)
+                Text("Live · updated \(info.lastUpdated.formatted(date: .omitted, time: .standard))")
+            }
+            .font(PanelFont.caption())
+            .foregroundStyle(Color.white.opacity(0.4))
+            Spacer()
+            Button {
+                NSApp.terminate(nil)
+            } label: {
+                Label("Quit", systemImage: "power")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.55))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var background: some View {
+        ZStack {
+            LinearGradient(colors: [Color(white: 0.12), Color(white: 0.07)],
+                           startPoint: .top, endPoint: .bottom)
+            Circle()
+                .fill(levelColor.opacity(0.22))
+                .frame(width: 300, height: 300)
+                .blur(radius: 90)
+                .offset(x: -130, y: -280)
+            Circle()
+                .fill(Color.teal.opacity(0.12))
+                .frame(width: 260, height: 260)
+                .blur(radius: 90)
+                .offset(x: 150, y: 260)
+        }
+        .animation(.easeInOut(duration: 0.8), value: info.percentage)
+        .ignoresSafeArea()
+    }
+
+    // MARK: - Derived values
+
+    private var timeTitle: String {
+        info.state == .charging ? "UNTIL FULL" : "TIME LEFT"
+    }
+
+    private var timeValue: String {
+        switch info.state {
+        case .charging:
+            return info.timeToFullMinutes.map { Format.duration(minutes: $0) } ?? "…"
+        case .discharging:
+            return info.timeToEmptyMinutes.map { Format.duration(minutes: $0) } ?? "…"
+        case .full:        return "Full"
+        case .notCharging: return "On AC"
+        case .noBattery:   return "—"
+        }
+    }
+
+    private var cycleText: String {
+        guard let cycles = info.cycleCount else { return "—" }
+        return "\(cycles.formatted())/1000"
+    }
+
+    private struct Grade {
+        let label: String
+        let icon: String
+        let color: Color
+        var detail: String = ""
+    }
+
+    private var healthGrade: Grade {
+        guard let h = info.healthPercent else {
+            return Grade(label: "Unknown", icon: "questionmark.circle.fill", color: Color.gray)
+        }
+        if h >= 90 { return Grade(label: "Excellent", icon: "checkmark.seal.fill", color: Color.green) }
+        if h >= 80 { return Grade(label: "Good", icon: "checkmark.seal.fill", color: Color.green) }
+        if h >= 70 { return Grade(label: "Fair", icon: "exclamationmark.triangle.fill", color: Color.yellow) }
+        return Grade(label: "Poor", icon: "xmark.octagon.fill", color: Color.red)
+    }
+
+    private var healthAdvice: String {
+        if info.condition != "Normal" && info.condition != "Unknown" {
+            return "macOS reports: \(info.condition)."
+        }
+        switch healthGrade.label {
+        case "Excellent", "Good": return "Your battery is in great shape."
+        case "Fair":              return "Capacity is reduced. Keep an eye on it."
+        case "Poor":              return "Consider servicing your battery with Apple."
+        default:                  return "Health data isn't available on this Mac."
+        }
+    }
+
+    private var temperatureGrade: Grade {
+        guard let c = info.temperatureCelsius else {
+            return Grade(label: "Unknown", icon: "questionmark.circle.fill", color: Color.gray, detail: "Not reported")
+        }
+        if c < 35 { return Grade(label: "Normal", icon: "checkmark.circle.fill", color: Color.green, detail: "Optimal performance") }
+        if c < 40 { return Grade(label: "Warm", icon: "exclamationmark.circle.fill", color: Color.orange, detail: "Consider a lighter load") }
+        return Grade(label: "Hot", icon: "flame.fill", color: Color.red, detail: "Let your Mac cool down")
+    }
+
+    private var primaryTemperature: String {
+        guard let c = info.temperatureCelsius else { return "—" }
+        return Format.temperature(celsius: c, fahrenheit: useFahrenheit)
+    }
+
+    private var secondaryTemperature: String {
+        guard let c = info.temperatureCelsius else { return " " }
+        return Format.temperature(celsius: c, fahrenheit: !useFahrenheit)
+    }
+}
+
+// MARK: - Device row
+
+private struct DeviceRow: View {
+    let device: BluetoothDevice
+
+    private let water = Color(red: 0.38, green: 0.80, blue: 1.00)
+
+    private var level: Int? { device.displayLevel }
+
+    private var tint: Color {
+        guard let level else { return water }
+        if level < 10 { return Color.red }
+        if level <= 20 { return Color.orange }
+        if level >= 100 { return Color.green }
+        return Color.white.opacity(0.9)
+    }
+
+    private var valueText: String {
+        if let level { return "\(level)%" }
+        if let watts = device.chargingWatts { return String(format: "%.1f W", watts) }
+        return "—"
+    }
+
+    private var barFraction: Double {
+        if let level { return Double(level) / 100.0 }
+        if let watts = device.chargingWatts { return Swift.min(watts / 20.0, 1) }
+        return 0
+    }
+
+    private var detailText: String? {
+        var parts: [String] = []
+        if let model = device.model, model != device.name { parts.append(model) }
+        if device.connection != "Bluetooth" { parts.append(device.connection) }
+        if let watts = device.chargingWatts {
+            parts.append(level == nil ? "powered by Mac" : String(format: "charging from Mac · %.1f W", watts))
+        } else if device.isCharging {
+            parts.append("charging")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 9) {
+            Image(safeSystemName: device.symbolName, fallback: "dot.radiowaves.left.and.right")
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle((level ?? 100) <= 20 ? tint : Color.white.opacity(0.75))
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(device.name)
+                        .font(PanelFont.body(12))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    if device.hasBudLevels {
+                        HStack(spacing: 5) {
+                            budLabel("L", device.leftLevel)
+                            budLabel("R", device.rightLevel)
+                            budLabel("C", device.caseLevel)
+                        }
+                    }
+                    if device.chargingWatts != nil || device.isCharging {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(water)
+                    }
+                    Spacer(minLength: 4)
+                    Text(valueText)
+                        .font(.system(size: 12, weight: .bold, design: level == nil ? Font.Design.monospaced : Font.Design.rounded))
+                        .foregroundStyle(tint)
+                        .contentTransition(.numericText())
+                }
+                LevelBar(fraction: barFraction, tint: tint, height: 3)
+                if let detailText {
+                    Text(detailText)
+                        .font(.system(size: 9, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.45))
+                }
+            }
+        }
+        .padding(.vertical, 5)
+    }
+
+    @ViewBuilder
+    private func budLabel(_ title: String, _ value: Int?) -> some View {
+        if let value {
+            HStack(spacing: 2) {
+                Text(title)
+                    .foregroundStyle(Color.white.opacity(0.4))
+                Text("\(value)")
+                    .foregroundStyle(value < 10 ? Color.red : (value <= 20 ? Color.orange : Color.green))
+            }
+            .font(.system(size: 9, weight: .semibold, design: .rounded))
+        }
+    }
+}
+
+// MARK: - System Settings deep link
+
+enum SystemSettingsLink {
+    static func openBatterySettings() {
+        let candidates = [
+            "x-apple.systempreferences:com.apple.preference.battery",
+            "x-apple.systempreferences:com.apple.Battery-Settings.extension",
+        ]
+        for string in candidates {
+            if let url = URL(string: string), NSWorkspace.shared.open(url) {
+                return
+            }
+        }
+    }
+}

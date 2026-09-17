@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  The App Sandbox is OFF on purpose: KwikBattery reads IORegistry battery
+	  data, runs `system_profiler` for Bluetooth battery levels, and can call
+	  the optional libimobiledevice tools for iPhone/iPad battery levels.
+	  None of this needs a special entitlement.
+	-->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+</dict>
+</plist>

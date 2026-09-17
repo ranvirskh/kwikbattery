@@ -1,0 +1,17 @@
+# Build output
+build/
+release/
+last-build.log
+
+# Local scratch / diagnostics
+_removed/
+*-diag.txt
+*.txbash
+
+# Xcode user data
+xcuserdata/
+*.xcuserstate
+DerivedData/
+
+# macOS
+.DS_Store

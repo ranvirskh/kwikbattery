@@ -307,6 +307,11 @@ struct SankeyFlowView: View {
     private let boxWidth: CGFloat = 46
     private let gap: CGFloat = 4
 
+    /// How long after opening the animation stays at full frame rate.
+    private let smoothWindow: TimeInterval = 15
+
+    @State private var isSmooth = true
+
     var body: some View {
         GeometryReader { geo in
             let layout = SankeyLayout(size: geo.size, boxWidth: boxWidth, gap: gap,
@@ -342,63 +347,82 @@ struct SankeyFlowView: View {
     // MARK: Ribbons
 
     private func ribbons(layout: SankeyLayout) -> some View {
-        // 6 fps is plenty here: the shimmer has a 5-second period and the
-        // ripple is purely decorative, so redrawing the whole Canvas 30 times
-        // a second burns CPU/GPU (and battery) with no visible benefit.
-        TimelineView(.animation(minimumInterval: 1.0 / 6.0)) { timeline in
+        // Smooth while you're actually looking (the first `smoothWindow`
+        // seconds after the popover opens), then drop to a trickle. The
+        // shimmer has a 5-second period and is purely decorative, so once the
+        // panel has been sitting open a while, a high frame rate would burn
+        // CPU/GPU (and battery) for something nobody is watching any more.
+        TimelineView(.animation(minimumInterval: 1.0 / frameRate, paused: false)) { timeline in
             Canvas { context, size in
-                let t = timeline.date.timeIntervalSinceReferenceDate
-                let fromX = layout.ribbonStartX
-                let toX = layout.ribbonEndX
-
-                for (index, destination) in destinations.enumerated() {
-                    let ribbon = layout.ribbonPath(index)
-
-                    // Base glass / color fill, fading toward the destination.
-                    let colors: [Color] = destination.highlighted
-                        ? [destination.tint.opacity(0.95), destination.tint.opacity(0.55), Color.white.opacity(0.14)]
-                        : [Color.white.opacity(0.30), Color.white.opacity(0.16), Color.white.opacity(0.10)]
-                    context.fill(ribbon,
-                                 with: .linearGradient(Gradient(colors: colors),
-                                                       startPoint: CGPoint(x: fromX, y: 0),
-                                                       endPoint: CGPoint(x: toX, y: 0)))
-                    if !destination.highlighted && destination.tint != Color.white {
-                        context.fill(ribbon, with: .color(destination.tint.opacity(0.14)))
-                    }
-
-                    // Slow liquid shimmer drifting along the ribbon.
-                    var liquid = context
-                    liquid.clip(to: ribbon)
-                    let span = toX - fromX
-                    let period = 5.0
-                    let phase = (t / period + Double(index) * 0.33).truncatingRemainder(dividingBy: 1.0)
-                    let center = fromX - 50 + (span + 100) * CGFloat(phase)
-                    liquid.fill(Path(CGRect(x: center - 50, y: 0, width: 100, height: size.height)),
-                                with: .linearGradient(Gradient(colors: [Color.white.opacity(0),
-                                                                        Color.white.opacity(0.18),
-                                                                        Color.white.opacity(0)]),
-                                                      startPoint: CGPoint(x: center - 50, y: 0),
-                                                      endPoint: CGPoint(x: center + 50, y: 0)))
-
-                    // Gentle ripple along the top edge.
-                    let ripplePhase = t * 0.8 + Double(index)
-                    var ripple = Path()
-                    let range = layout.leftRange(index)
-                    var x = fromX + 12
-                    ripple.move(to: CGPoint(x: x, y: range.top + 3))
-                    while x < fromX + span * 0.22 {
-                        x += 3
-                        let y = range.top + 3 + CGFloat(sin(Double(x) / 7.0 + ripplePhase)) * 0.8
-                        ripple.addLine(to: CGPoint(x: x, y: y))
-                    }
-                    liquid.stroke(ripple, with: .color(Color.white.opacity(0.22)), lineWidth: 0.8)
-
-                    // Soft rim.
-                    context.stroke(ribbon, with: .color(Color.white.opacity(0.10)), lineWidth: 0.8)
-                }
+                drawRibbons(context: &context, size: size, layout: layout,
+                            time: timeline.date.timeIntervalSinceReferenceDate)
             }
         }
         .allowsHitTesting(false)
+        // Runs each time the view appears and is cancelled when it goes away,
+        // so every fresh open of the popover gets its smooth window back.
+        .task {
+            isSmooth = true
+            try? await Task.sleep(nanoseconds: UInt64(smoothWindow * 1_000_000_000))
+            isSmooth = false
+        }
+    }
+
+    /// 60 fps while freshly opened, then the bare minimum.
+    private var frameRate: Double {
+        isSmooth ? 60.0 : 4.0
+    }
+
+    private func drawRibbons(context: inout GraphicsContext, size: CGSize,
+                             layout: SankeyLayout, time t: TimeInterval) {
+        let fromX = layout.ribbonStartX
+        let toX = layout.ribbonEndX
+
+        for (index, destination) in destinations.enumerated() {
+            let ribbon = layout.ribbonPath(index)
+
+            // Base glass / color fill, fading toward the destination.
+            let colors: [Color] = destination.highlighted
+                ? [destination.tint.opacity(0.95), destination.tint.opacity(0.55), Color.white.opacity(0.14)]
+                : [Color.white.opacity(0.30), Color.white.opacity(0.16), Color.white.opacity(0.10)]
+            context.fill(ribbon,
+                         with: .linearGradient(Gradient(colors: colors),
+                                               startPoint: CGPoint(x: fromX, y: 0),
+                                               endPoint: CGPoint(x: toX, y: 0)))
+            if !destination.highlighted && destination.tint != Color.white {
+                context.fill(ribbon, with: .color(destination.tint.opacity(0.14)))
+            }
+
+            // Slow liquid shimmer drifting along the ribbon.
+            var liquid = context
+            liquid.clip(to: ribbon)
+            let span = toX - fromX
+            let period = 5.0
+            let phase = (t / period + Double(index) * 0.33).truncatingRemainder(dividingBy: 1.0)
+            let center = fromX - 50 + (span + 100) * CGFloat(phase)
+            liquid.fill(Path(CGRect(x: center - 50, y: 0, width: 100, height: size.height)),
+                        with: .linearGradient(Gradient(colors: [Color.white.opacity(0),
+                                                                Color.white.opacity(0.18),
+                                                                Color.white.opacity(0)]),
+                                              startPoint: CGPoint(x: center - 50, y: 0),
+                                              endPoint: CGPoint(x: center + 50, y: 0)))
+
+            // Gentle ripple along the top edge.
+            let ripplePhase = t * 0.8 + Double(index)
+            var ripple = Path()
+            let range = layout.leftRange(index)
+            var x = fromX + 12
+            ripple.move(to: CGPoint(x: x, y: range.top + 3))
+            while x < fromX + span * 0.22 {
+                x += 3
+                let y = range.top + 3 + CGFloat(sin(Double(x) / 7.0 + ripplePhase)) * 0.8
+                ripple.addLine(to: CGPoint(x: x, y: y))
+            }
+            liquid.stroke(ripple, with: .color(Color.white.opacity(0.22)), lineWidth: 0.8)
+
+            // Soft rim.
+            context.stroke(ribbon, with: .color(Color.white.opacity(0.10)), lineWidth: 0.8)
+        }
     }
 
     // MARK: Boxes

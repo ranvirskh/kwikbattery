@@ -20,6 +20,7 @@
 		94A7163B7B6A5DA7B7F8DB7A /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F150B2896A4E6DA6A517594C /* NotificationManager.swift */; };
 		E19263B0A428417F61F89867 /* PanelComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4122C8DCDEA3CEFF3B987F0 /* PanelComponents.swift */; };
 		19DDCF562E937CC99D866FDE /* PowerFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3D051729E0AEEA5EAC2077A /* PowerFlowView.swift */; };
+		33EB1C16BBBA93D6871C4CEF /* SMCReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F34DC80B282D1796A8F09109 /* SMCReader.swift */; };
 		13123639A928E2759BEE00C6 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A21A6ED3D65973452F31DAC /* SettingsView.swift */; };
 		1D600CF5309BDCFA1B06DA42 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86296FB89BC8C99AA36221F9 /* SettingsWindowController.swift */; };
 		FCB5850EDDE2BE26460FD292 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8D1DF0B00DA0DE35AE5F3B /* Theme.swift */; };
@@ -41,6 +42,7 @@
 		F150B2896A4E6DA6A517594C /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		E4122C8DCDEA3CEFF3B987F0 /* PanelComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelComponents.swift; sourceTree = "<group>"; };
 		A3D051729E0AEEA5EAC2077A /* PowerFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerFlowView.swift; sourceTree = "<group>"; };
+		F34DC80B282D1796A8F09109 /* SMCReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMCReader.swift; sourceTree = "<group>"; };
 		3A21A6ED3D65973452F31DAC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		86296FB89BC8C99AA36221F9 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		7B8D1DF0B00DA0DE35AE5F3B /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -92,6 +94,7 @@
 				F150B2896A4E6DA6A517594C /* NotificationManager.swift */,
 				E4122C8DCDEA3CEFF3B987F0 /* PanelComponents.swift */,
 				A3D051729E0AEEA5EAC2077A /* PowerFlowView.swift */,
+				F34DC80B282D1796A8F09109 /* SMCReader.swift */,
 				3A21A6ED3D65973452F31DAC /* SettingsView.swift */,
 				86296FB89BC8C99AA36221F9 /* SettingsWindowController.swift */,
 				7B8D1DF0B00DA0DE35AE5F3B /* Theme.swift */,
@@ -184,6 +187,7 @@
 				94A7163B7B6A5DA7B7F8DB7A /* NotificationManager.swift in Sources */,
 				E19263B0A428417F61F89867 /* PanelComponents.swift in Sources */,
 				19DDCF562E937CC99D866FDE /* PowerFlowView.swift in Sources */,
+				33EB1C16BBBA93D6871C4CEF /* SMCReader.swift in Sources */,
 				13123639A928E2759BEE00C6 /* SettingsView.swift in Sources */,
 				1D600CF5309BDCFA1B06DA42 /* SettingsWindowController.swift in Sources */,
 				FCB5850EDDE2BE26460FD292 /* Theme.swift in Sources */,

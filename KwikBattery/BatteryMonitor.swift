@@ -105,7 +105,31 @@ final class BatteryMonitor: ObservableObject {
         let adapter = Self.readAdapterDetails()
         var newInfo = Self.makeBatteryInfo(powerSource: ps, smartBattery: sb, adapter: adapter)
         newInfo.poweredAccessories = AccessoryPowerReader.read(smartBattery: sb)
+        if newInfo.hasBattery {
+            Self.applyLiveSMC(to: &newInfo)
+        }
         info = newInfo
+    }
+
+    /// Overlays fast-updating SMC sensor values on top of the (slow) IORegistry data.
+    nonisolated static func applyLiveSMC(to info: inout BatteryInfo) {
+        let smc = SMCReader.shared
+        guard smc.isAvailable else { return }
+        let live = smc.snapshot(referenceAmps: info.amperage)
+
+        if let v = live.batteryVoltage { info.voltage = v }
+        if let a = live.batteryCurrent {
+            info.amperage = a
+            if info.isPluggedIn && a > 0.05 { info.isCharging = true }
+        }
+        if let p = live.batteryPower { info.batteryPowerMeasured = p }
+        if let p = live.systemPower { info.systemLoad = p }
+
+        if info.isPluggedIn {
+            if let p = live.adapterPower { info.systemPowerIn = p }
+            if let v = live.adapterVoltage { info.systemVoltageIn = v }
+            if let a = live.adapterCurrent { info.systemCurrentIn = a }
+        }
     }
 
     // MARK: - IOKit: change notifications

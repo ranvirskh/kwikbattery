@@ -14,6 +14,18 @@ import Combine
 struct KwikBatteryApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    init() {
+        // `KwikBattery --smc-diag` prints live SMC readings and exits (used by build.sh).
+        if CommandLine.arguments.contains("--smc-diag") {
+            for round in 1...3 {
+                print("--- SMC reading \(round) ---")
+                print(SMCReader.shared.diagnosticReport())
+                Thread.sleep(forTimeInterval: 1)
+            }
+            exit(0)
+        }
+    }
+
     var body: some Scene {
         // SwiftUI requires at least one scene. The real settings window is
         // managed by SettingsWindowController (opened from the popover), but

@@ -163,6 +163,9 @@ if [[ "$MODE" == "--release" ]]; then
   exit 0
 fi
 
+echo "==> Live sensor (SMC) check"
+"$APP/Contents/MacOS/$APP_NAME" --smc-diag 2>&1 | head -60 || true
+
 if [[ "$MODE" == "--install" ]]; then
   echo "==> Installing to ~/Applications"
   mkdir -p "$HOME/Applications"

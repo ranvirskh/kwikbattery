@@ -68,6 +68,9 @@ final class BatteryMonitor: ObservableObject {
     // property table and makes up to 7 SMC syscalls, so this roughly halves
     // the syscall volume while the readings still feel live.
     private let liveInterval: TimeInterval = 2
+    /// Low Power Mode halves the update rate everywhere.
+    private var liveRate: TimeInterval { AppSettings.lowPowerMode ? 4 : liveInterval }
+    private var idleRate: TimeInterval { AppSettings.lowPowerMode ? 900 : idleInterval }
     private var isLive = false
 
     private init() {}
@@ -92,7 +95,7 @@ final class BatteryMonitor: ObservableObject {
 
     private func schedulePolling() {
         pollCancellable?.cancel()
-        pollCancellable = Timer.publish(every: isLive ? liveInterval : idleInterval, on: .main, in: .common)
+        pollCancellable = Timer.publish(every: isLive ? liveRate : idleRate, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.refresh() }
     }

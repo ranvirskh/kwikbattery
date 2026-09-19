@@ -14,6 +14,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private let statusItem: NSStatusItem
     private let popover = NSPopover()
     private var cancellables = Set<AnyCancellable>()
+    /// Last values actually drawn, so identical updates don't redraw the icon.
+    private var lastDrawn: (percentage: Int, state: ChargingState, showPercent: Bool)?
 
     init(monitor: BatteryMonitor, devices: BluetoothDeviceMonitor, openSettings: @escaping () -> Void) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -71,7 +73,6 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         } else {
             BatteryMonitor.shared.setLiveUpdates(true)   // 1-second updates while open
             BluetoothDeviceMonitor.shared.refreshIfStale()
-            AppEnergyMonitor.shared.setActive(true)
             AnimationBudget.shared.setActive(true)
             UpdateChecker.shared.checkIfDue()
             NSApp.activate()
@@ -90,6 +91,16 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
     private func updateButton(with info: BatteryInfo) {
         guard let button = statusItem.button else { return }
+
+        // The icon only depends on these three things; re-rendering it for an
+        // unchanged reading is pure waste (we refresh far more often than the
+        // percentage actually moves).
+        let signature = (info.percentage, info.state, AppSettings.showPercentage)
+        if let lastDrawn, lastDrawn == signature {
+            button.toolTip = tooltip(for: info)
+            return
+        }
+        lastDrawn = signature
 
         if info.hasBattery {
             button.image = MenuBarIconRenderer.image(percentage: info.percentage,

@@ -16,6 +16,8 @@ struct SettingsView: View {
     // General
     @AppStorage(SettingsKey.showPercentage) private var showPercentage = SettingsDefault.showPercentage
     @AppStorage(SettingsKey.useFahrenheit) private var useFahrenheit = SettingsDefault.useFahrenheit
+    @AppStorage(SettingsKey.lowPowerMode) private var lowPowerMode = SettingsDefault.lowPowerMode
+    @AppStorage(SettingsKey.showLowPowerToggle) private var showLowPowerToggle = SettingsDefault.showLowPowerToggle
 
     // Notifications
     @AppStorage(SettingsKey.notifyFullCharge) private var notifyFullCharge = SettingsDefault.notifyFullCharge
@@ -70,6 +72,12 @@ struct SettingsView: View {
             }
 
             Toggle("Show percentage inside the menu bar battery", isOn: $showPercentage)
+
+            Toggle("Low Power Mode", isOn: $lowPowerMode)
+            Text("Updates every 4 seconds instead of 2, skips animation, and checks devices far less often.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Toggle("Show the Low Power switch in the dropdown", isOn: $showLowPowerToggle)
 
             Picker("Temperature unit", selection: $useFahrenheit) {
                 Text("Celsius (°C)").tag(false)

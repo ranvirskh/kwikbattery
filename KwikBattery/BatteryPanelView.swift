@@ -15,6 +15,8 @@ struct BatteryPanelView: View {
     @EnvironmentObject private var budget: AnimationBudget
     @EnvironmentObject private var updates: UpdateChecker
     @AppStorage(SettingsKey.useFahrenheit) private var useFahrenheit = SettingsDefault.useFahrenheit
+    @AppStorage(SettingsKey.lowPowerMode) private var lowPowerMode = SettingsDefault.lowPowerMode
+    @AppStorage(SettingsKey.showLowPowerToggle) private var showLowPowerToggle = SettingsDefault.showLowPowerToggle
 
     @AppStorage("panel.powerExpanded") private var powerExpanded = true
     @AppStorage("panel.infoExpanded") private var infoExpanded = true
@@ -55,6 +57,9 @@ struct BatteryPanelView: View {
                 PanelSection("Top Energy Users", icon: "flame.fill", tint: Color.pink,
                              isExpanded: $energyExpanded) {
                     energyUsers
+                        // Sampling runs `top`; don't pay for it when collapsed.
+                        .onAppear { energy.setActive(true) }
+                        .onDisappear { energy.setActive(false) }
                 }
                 .appearEffect(delay: 0.12)
             } else {
@@ -123,9 +128,29 @@ struct BatteryPanelView: View {
             Text("KwikBattery")
                 .font(PanelFont.title(13))
             Spacer()
+            if showLowPowerToggle {
+                Button {
+                    lowPowerMode.toggle()
+                    AnimationBudget.shared.setActive(true)   // apply immediately
+                } label: {
+                    HStack(spacing: 3) {
+                        Image(systemName: lowPowerMode ? "leaf.fill" : "leaf")
+                            .font(.system(size: 9, weight: .bold))
+                        Text("Low Power")
+                            .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundStyle(lowPowerMode ? Color.green : Color.white.opacity(0.45))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(lowPowerMode ? Color.green.opacity(0.18) : Color.white.opacity(0.07)))
+                }
+                .buttonStyle(.plain)
+                .help(lowPowerMode ? "Low Power Mode on — slower updates, no animation" : "Low Power Mode off")
+            }
             CircleIconButton(systemName: "arrow.clockwise", help: "Refresh", action: {
                 withAnimation(.easeInOut(duration: 0.6)) { refreshSpin += 360 }
                 monitor.refresh()
+                devices.invalidateCache()
                 devices.refresh()
             })
             .rotationEffect(.degrees(refreshSpin))
@@ -435,8 +460,11 @@ struct BatteryPanelView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             VStack(spacing: 0) {
-                if devices.localNetworkLikelyBlocked {
-                    localNetworkHint
+                // Only when no phone is listed at all — a remembered (stale)
+                // iPhone still counts as listed.
+                if devices.mobileLookup == .noDevicePaired,
+                   !list.contains(where: { $0.kind == .phone }) {
+                    iPhoneHint
                 }
                 ForEach(Array(list.enumerated()), id: \.element.id) { index, device in
                     if index > 0 {
@@ -448,34 +476,36 @@ struct BatteryPanelView: View {
         }
     }
 
-    /// Shown when an iPhone/iPad can't be seen over Wi-Fi because macOS hasn't
-    /// granted KwikBattery Local Network access.
-    private var localNetworkHint: some View {
+    /// Shown only when the lookup tools ran successfully but listed no device.
+    /// States the fact; the usual reasons are offered as a hint, not a cause.
+    private var iPhoneHint: some View {
         HStack(spacing: 7) {
-            Image(safeSystemName: "wifi.exclamationmark", fallback: "wifi.slash")
+            Image(systemName: "iphone.slash")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.orange)
+                .foregroundStyle(Color.white.opacity(0.4))
             VStack(alignment: .leading, spacing: 1) {
-                Text("iPhone not showing?")
+                Text("No iPhone found")
                     .font(PanelFont.body(11))
-                Text("Allow KwikBattery under Local Network")
+                    .foregroundStyle(Color.white.opacity(0.7))
+                Text("Unlock it on the same Wi-Fi, or check Local Network access")
                     .font(.system(size: 9, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(0.5))
+                    .foregroundStyle(Color.white.opacity(0.4))
+                    .lineLimit(2)
             }
             Spacer(minLength: 4)
             Button {
                 SystemSettingsLink.openLocalNetworkSettings()
             } label: {
-                Text("Open")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.orange)
-                    .padding(.horizontal, 8)
+                Text("Settings")
+                    .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.55))
+                    .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.orange.opacity(0.16)))
+                    .background(Capsule().fill(Color.white.opacity(0.08)))
             }
             .buttonStyle(.plain)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 5)
     }
 
     private var noBatteryCard: some View {
@@ -678,8 +708,21 @@ private struct DeviceRow: View {
         return 0
     }
 
+    /// Readings older than a minute are treated as stale.
+    private var staleness: String? {
+        let age = Date().timeIntervalSince(device.lastSeen)
+        guard age > 60 else { return nil }
+        let minutes = Int(age / 60)
+        if minutes < 60 { return "\(minutes) min ago" }
+        let hours = minutes / 60
+        return hours == 1 ? "1 hour ago" : "\(hours) hours ago"
+    }
+
+    private var isStale: Bool { staleness != nil }
+
     private var detailText: String? {
         var parts: [String] = []
+        if let stale = staleness { parts.append(stale) }
         if let model = device.model, model != device.name { parts.append(model) }
         if device.connection != "Bluetooth" { parts.append(device.connection) }
         if let watts = device.chargingWatts {
@@ -730,6 +773,7 @@ private struct DeviceRow: View {
             }
         }
         .padding(.vertical, 3)
+        .opacity(isStale ? 0.45 : 1)
     }
 
     @ViewBuilder

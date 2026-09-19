@@ -221,7 +221,12 @@ final class BluetoothDeviceMonitor: ObservableObject {
         var result: [BluetoothDevice] = []
         var seen = Set<String>()
         for (flag, connection) in [("-l", "USB"), ("-n", "Wi-Fi")] {
-            let listing = runTool(idList, [flag], timeout: 4) ?? ""
+            // Wi-Fi lookups go over the network and are far slower than USB,
+            // so they get a longer budget; 5 s was cutting them off entirely.
+            let isWireless = (connection == "Wi-Fi")
+            let listTimeout: TimeInterval = isWireless ? 8 : 4
+            let queryTimeout: TimeInterval = isWireless ? 15 : 6
+            let listing = runTool(idList, [flag], timeout: listTimeout) ?? ""
             let udids = listing
                 .split(whereSeparator: \.isNewline)
                 .map { line -> String in
@@ -234,15 +239,17 @@ final class BluetoothDeviceMonitor: ObservableObject {
                 var base = ["-u", udid]
                 if connection == "Wi-Fi" { base.insert("-n", at: 0) }
 
-                guard let batteryText = runTool(info, base + ["-q", "com.apple.mobile.battery"], timeout: 5) else { continue }
+                guard let batteryText = runTool(info, base + ["-q", "com.apple.mobile.battery"],
+                                                timeout: queryTimeout) else { continue }
                 let battery = parseKeyValues(batteryText)
                 guard let level = battery["BatteryCurrentCapacity"].flatMap({ Int($0) }) else { continue }
 
-                let nameText = runTool(info, base + ["-k", "DeviceName"], timeout: 4) ?? ""
-                let name = nameText.trimmingCharacters(in: .whitespacesAndNewlines)
-                let classText = runTool(info, base + ["-k", "DeviceClass"], timeout: 4) ?? ""
-                let isPad = classText.lowercased().contains("ipad")
-                let productType = (runTool(info, base + ["-k", "ProductType"], timeout: 4) ?? "")
+                // One call for all the device facts instead of three separate
+                // round trips — much faster, and far less likely to time out.
+                let details = parseKeyValues(runTool(info, base, timeout: queryTimeout) ?? "")
+                let name = (details["DeviceName"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                let isPad = (details["DeviceClass"] ?? "").lowercased().contains("ipad")
+                let productType = (details["ProductType"] ?? "")
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 let modelName = AppleModelNames.name(forProductType: productType)
                     ?? (isPad ? "iPad" : "iPhone")

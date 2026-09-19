@@ -1,6 +1,8 @@
 # KwikBattery
 
 A free, native macOS menu bar app for your battery and power. Every feature is included: no paywalls, subscriptions, accounts or tracking.
+## View
+<img width="323" height="857" alt="image" src="https://github.com/user-attachments/assets/184cbb7f-14a9-472d-bdd9-c2b4109732f3" />
 
 ## Features
 

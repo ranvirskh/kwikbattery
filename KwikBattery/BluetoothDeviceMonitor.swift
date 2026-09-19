@@ -36,6 +36,8 @@ struct BluetoothDevice: Identifiable, Equatable {
     var connection: String = "Bluetooth"
     /// Watts this device is drawing from the Mac (USB-powered devices).
     var chargingWatts: Double? = nil
+    /// When this reading was taken. Older readings are shown dimmed.
+    var lastSeen: Date = Date()
     /// Marketing model name, e.g. "iPhone 17" (Apple mobile devices only).
     var model: String? = nil
 
@@ -75,12 +77,24 @@ final class BluetoothDeviceMonitor: ObservableObject {
     @Published private(set) var devices: [BluetoothDevice] = []
     @Published private(set) var isLoading = false
     @Published private(set) var hasLoadedOnce = false
-    /// True when the iPhone tools are installed but nothing was found over
-    /// Wi-Fi — almost always the missing Local Network permission.
-    @Published private(set) var localNetworkLikelyBlocked = false
+    /// What the last iPhone/iPad lookup actually did. Used for an honest
+    /// message instead of guessing at a cause.
+    enum MobileLookup: Equatable {
+        case toolsMissing          // libimobiledevice isn't installed
+        case noDevicePaired        // tools ran fine, nothing was listed
+        case found                 // at least one device answered
+    }
+    @Published private(set) var mobileLookup: MobileLookup = .toolsMissing
 
     private var timerCancellable: AnyCancellable?
     private var lastRefresh: Date = .distantPast
+    private var hasRetriedEmpty = false
+    /// Last good reading per device id, so a phone that locks (and stops
+    /// answering) stays listed as a stale entry instead of vanishing.
+    private var remembered: [String: BluetoothDevice] = [:]
+
+    /// A remembered reading is dropped once it's this old.
+    private let rememberFor: TimeInterval = 2 * 60 * 60
 
     private init() {}
 
@@ -100,9 +114,50 @@ final class BluetoothDeviceMonitor: ObservableObject {
 
     /// Called when the popover opens; avoids re-running system_profiler constantly.
     func refreshIfStale() {
-        if Date().timeIntervalSince(lastRefresh) > 15 {
+        // system_profiler is a heavy process launch, so a good result is worth
+        // reusing. An *empty* one isn't: a phone that was asleep, off Wi-Fi or
+        // not yet awake at launch would otherwise stay missing for minutes.
+        let foundSomething = !devices.isEmpty
+        let maxAge: TimeInterval
+        if !foundSomething {
+            maxAge = 10                                   // nothing yet — retry promptly
+        } else if AppSettings.lowPowerMode {
+            maxAge = 600
+        } else {
+            maxAge = 180
+        }
+        if Date().timeIntervalSince(lastRefresh) > maxAge {
             refresh()
         }
+    }
+
+    /// Keeps devices that answered recently but didn't this time — an iPhone
+    /// that has locked, AirPods back in the case, and so on.
+    private func merge(fresh: [BluetoothDevice]) -> [BluetoothDevice] {
+        let now = Date()
+        for device in fresh {
+            var stamped = device
+            stamped.lastSeen = now
+            remembered[device.id] = stamped
+        }
+        // Drop anything we haven't seen for a while.
+        remembered = remembered.filter { now.timeIntervalSince($0.value.lastSeen) < rememberFor }
+
+        let freshIDs = Set(fresh.map { $0.id })
+        let stale = remembered.values
+            .filter { !freshIDs.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+        return fresh.map { device -> BluetoothDevice in
+            var stamped = device
+            stamped.lastSeen = now
+            return stamped
+        } + stale
+    }
+
+    /// Forces the next refreshIfStale() to actually run (used by the Refresh button).
+    func invalidateCache() {
+        lastRefresh = .distantPast
     }
 
     func refresh() {
@@ -110,12 +165,28 @@ final class BluetoothDeviceMonitor: ObservableObject {
         isLoading = true
         lastRefresh = Date()
         Task {
-            let result = await Self.loadDevices()
-            self.devices = result
-            self.localNetworkLikelyBlocked = Self.mobileToolsInstalled()
-                && !result.contains { $0.kind == .phone }
+            let fresh = await Self.loadDevices()
+            self.devices = self.merge(fresh: fresh)
+            let result = fresh
+            if !Self.mobileToolsInstalled() {
+                self.mobileLookup = .toolsMissing
+            } else {
+                self.mobileLookup = result.contains { $0.kind == .phone } ? .found : .noDevicePaired
+            }
             self.isLoading = false
             self.hasLoadedOnce = true
+
+            // Devices often aren't reachable in the first seconds after login
+            // or wake. If we came back empty, try once more a little later.
+            if result.isEmpty && !self.hasRetriedEmpty {
+                self.hasRetriedEmpty = true
+                Task { [weak self] in
+                    try? await Task.sleep(nanoseconds: 20 * 1_000_000_000)
+                    self?.refresh()
+                }
+            } else if !result.isEmpty {
+                self.hasRetriedEmpty = false
+            }
         }
     }
 

@@ -46,9 +46,10 @@ final class AppEnergyMonitor: ObservableObject {
         if active {
             guard timer == nil else { return }
             sample()
-            // 8 s rather than 4: every sample forks `top`, which costs far more
-            // than any drawing in the panel.
-            timer = Timer.publish(every: 8, on: .main, in: .common)
+            // Every sample forks `top`, which costs far more than any drawing
+            // in the panel, so keep it infrequent (and slower again in Low Power).
+            let interval: TimeInterval = AppSettings.lowPowerMode ? 30 : 15
+            timer = Timer.publish(every: interval, on: .main, in: .common)
                 .autoconnect()
                 .sink { [weak self] _ in self?.sample() }
         } else {
@@ -123,6 +124,7 @@ final class AppEnergyMonitor: ObservableObject {
         guard grandTotal > 0 else { return [] }
 
         var totals: [String: (name: String, path: String?, impact: Double)] = [:]
+        let ownBundleID = Bundle.main.bundleIdentifier
         for process in processes where process.impact > 0 {
             if process.command == "top" { continue }
             // A daemon owned by a running app (e.g. FaceTime's call services)
@@ -133,6 +135,12 @@ final class AppEnergyMonitor: ObservableObject {
                 appPath = host.path
                 ownerName = host.name
             }
+            // Don't list ourselves: measuring only happens while our own panel
+            // is open, which is exactly when this app is at its busiest, so the
+            // number would be both unflattering and misleading.
+            if let appPath, let bundle = Bundle(path: appPath),
+               bundle.bundleIdentifier == ownBundleID { continue }
+
             let key = appPath ?? process.command
             let name = ownerName ?? appPath.map { displayName(forAppAt: $0) } ?? friendlyProcessName(process.command)
             var entry = totals[key] ?? (name: name, path: appPath, impact: 0)

@@ -21,6 +21,8 @@ enum SettingsKey {
     static let notifySlowCharging   = "notifySlowCharging"
     static let slowChargingWatts    = "slowChargingWatts"        // watts (Double)
 
+    static let lowPowerMode         = "lowPowerMode"
+    static let showLowPowerToggle   = "showLowPowerToggle"       // in the dropdown
     static let lastHealthAlertDate  = "lastHealthAlertDate"      // internal
 }
 
@@ -34,6 +36,8 @@ enum SettingsDefault {
     static let healthThreshold      = 80.0
     static let notifySlowCharging   = true
     static let slowChargingWatts    = 10.0
+    static let lowPowerMode         = false
+    static let showLowPowerToggle   = true
 }
 
 enum AppSettings {
@@ -52,6 +56,8 @@ enum AppSettings {
             SettingsKey.healthThreshold:     SettingsDefault.healthThreshold,
             SettingsKey.notifySlowCharging:  SettingsDefault.notifySlowCharging,
             SettingsKey.slowChargingWatts:   SettingsDefault.slowChargingWatts,
+            SettingsKey.lowPowerMode:        SettingsDefault.lowPowerMode,
+            SettingsKey.showLowPowerToggle:  SettingsDefault.showLowPowerToggle,
         ])
     }
 
@@ -64,4 +70,10 @@ enum AppSettings {
     static var healthThreshold: Double   { defaults.double(forKey: SettingsKey.healthThreshold) }
     static var notifySlowCharging: Bool  { defaults.bool(forKey: SettingsKey.notifySlowCharging) }
     static var slowChargingWatts: Double { defaults.double(forKey: SettingsKey.slowChargingWatts) }
+    static var lowPowerMode: Bool        { defaults.bool(forKey: SettingsKey.lowPowerMode) }
+    static var showLowPowerToggle: Bool  { defaults.bool(forKey: SettingsKey.showLowPowerToggle) }
+
+    static func setLowPowerMode(_ enabled: Bool) {
+        defaults.set(enabled, forKey: SettingsKey.lowPowerMode)
+    }
 }

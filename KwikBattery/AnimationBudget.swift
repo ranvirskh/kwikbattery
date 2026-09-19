@@ -65,7 +65,8 @@ final class AnimationBudget: ObservableObject {
             windDown = nil
             return
         }
-        stage = .full
+        // Low Power Mode skips the smooth phase entirely.
+        stage = AppSettings.lowPowerMode ? .reduced : .full
         windDown = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(15 * 1_000_000_000))
             guard !Task.isCancelled else { return }

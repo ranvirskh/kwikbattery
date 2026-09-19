@@ -73,8 +73,11 @@ final class AppEnergyMonitor: ObservableObject {
     private func sample() {
         guard !isSampling else { return }
         isSampling = true
+        // Snapshot the running apps on the main actor; the sampling task uses
+        // it to credit background daemons to the app that owns them.
+        let running = Self.runningApps()
         Task {
-            let result = await Self.loadUsage()
+            let result = await Self.loadUsage(runningApps: running)
             self.apps = result
             self.hasLoaded = true
             self.isSampling = false
@@ -83,7 +86,33 @@ final class AppEnergyMonitor: ObservableObject {
 
     // MARK: - Sampling (off the main actor)
 
-    nonisolated static func loadUsage() async -> [AppEnergyUsage] {
+    /// Bundle identifier → the running app's bundle path and display name.
+    static func runningApps() -> [String: HostApp] {
+        var result: [String: HostApp] = [:]
+        for app in NSWorkspace.shared.runningApplications {
+            guard let bundleID = app.bundleIdentifier, let url = app.bundleURL else { continue }
+            result[bundleID] = HostApp(path: url.path,
+                                       name: app.localizedName ?? url.deletingPathExtension().lastPathComponent)
+        }
+        return result
+    }
+
+    struct HostApp {
+        let path: String
+        let name: String
+    }
+
+    /// Background daemons whose work really belongs to a visible app.
+    /// FaceTime calls run almost entirely inside these, so without this the
+    /// energy would be hidden in system processes and FaceTime would look idle.
+    nonisolated static let daemonOwners: [String: String] = [
+        "avconferenced": "com.apple.FaceTime",
+        "AVConference":  "com.apple.FaceTime",
+        "callservicesd": "com.apple.FaceTime",
+        "FaceTimeAgent": "com.apple.FaceTime",
+    ]
+
+    nonisolated static func loadUsage(runningApps: [String: HostApp]) async -> [AppEnergyUsage] {
         guard let output = runTop() else { return [] }
         let processes = parseTop(output)
 
@@ -96,9 +125,16 @@ final class AppEnergyMonitor: ObservableObject {
         var totals: [String: (name: String, path: String?, impact: Double)] = [:]
         for process in processes where process.impact > 0 {
             if process.command == "top" { continue }
-            let appPath = enclosingAppPath(for: process.pid)
+            // A daemon owned by a running app (e.g. FaceTime's call services)
+            // is credited to that app instead of being hidden as a system process.
+            var appPath = enclosingAppPath(for: process.pid)
+            var ownerName: String?
+            if let ownerBundleID = daemonOwners[process.command], let host = runningApps[ownerBundleID] {
+                appPath = host.path
+                ownerName = host.name
+            }
             let key = appPath ?? process.command
-            let name = appPath.map { displayName(forAppAt: $0) } ?? friendlyProcessName(process.command)
+            let name = ownerName ?? appPath.map { displayName(forAppAt: $0) } ?? friendlyProcessName(process.command)
             var entry = totals[key] ?? (name: name, path: appPath, impact: 0)
             entry.impact += process.impact
             totals[key] = entry
@@ -114,7 +150,7 @@ final class AppEnergyMonitor: ObservableObject {
                                impact: entry.value.impact,
                                percent: entry.value.impact / grandTotal * 100)
             }
-            .filter { $0.percent >= 0.5 }
+            .filter { $0.percent >= 0.3 }
             .sorted { $0.impact > $1.impact }
             .prefix(5)
             .map { $0 }

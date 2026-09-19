@@ -137,6 +137,9 @@ final class BatteryMonitor: ObservableObject {
             info.batteryPowerMeasured = nil
         }
         if let p = live.systemPower { info.systemLoad = p }
+        if info.temperatureCelsius == nil, let c = live.batteryTemperature {
+            info.temperatureCelsius = c
+        }
 
         if info.isPluggedIn {
             if let p = live.adapterPower { info.systemPowerIn = p }
@@ -307,16 +310,24 @@ final class BatteryMonitor: ObservableObject {
         let batteryData = sb?["BatteryData"] as? [String: Any]
         info.designCapacity = int(sb?["DesignCapacity"]) ?? int(batteryData?["DesignCapacity"])
 
+        // macOS 27 removed the top-level AppleRawMaxCapacity / NominalChargeCapacity
+        // and moved the real mAh figures inside "BatteryData", so check there too.
         if let raw = int(sb?["AppleRawMaxCapacity"]), raw > 0 {
-            info.maxCapacity = raw                                    // Apple Silicon
+            info.maxCapacity = raw                                    // Apple silicon ≤ macOS 26
         } else if let nominal = int(sb?["NominalChargeCapacity"]), nominal > 0 {
             info.maxCapacity = nominal
+        } else if let nominal = int(batteryData?["NominalChargeCapacity"]), nominal > 0 {
+            info.maxCapacity = nominal                                // macOS 27+
+        } else if let full = int(batteryData?["FullChargeCapacity"]), full > 0 {
+            info.maxCapacity = full
         } else if let maxCap = int(sb?["MaxCapacity"]), maxCap > 100 {
             info.maxCapacity = maxCap                                  // Intel (mAh)
         }
 
         if let raw = int(sb?["AppleRawCurrentCapacity"]), raw > 0 {
             info.currentCapacity = raw
+        } else if let remaining = int(batteryData?["RemainingCapacity"]), remaining > 0 {
+            info.currentCapacity = remaining                           // macOS 27+
         } else if let cur = int(sb?["CurrentCapacity"]), let maxCap = int(sb?["MaxCapacity"]), maxCap > 100 {
             info.currentCapacity = cur
         }
@@ -359,7 +370,10 @@ final class BatteryMonitor: ObservableObject {
         // --- Temperature ------------------------------------------------------
         // Reported in hundredths of a degree Celsius. Some models expose
         // "VirtualTemperature" instead. Ignore obviously bogus values.
-        if let t = signedInt(sb?["Temperature"]) ?? signedInt(sb?["VirtualTemperature"]) {
+        // macOS 27 dropped "Temperature" from this entry entirely; the SMC
+        // reading (TB0T) in applyLiveSMC covers that case.
+        if let t = signedInt(sb?["Temperature"]) ?? signedInt(sb?["VirtualTemperature"])
+            ?? signedInt(batteryData?["Temperature"]) {
             let c = Double(t) / 100.0
             if c > -40 && c < 120 && t != 0 { info.temperatureCelsius = c }
         }

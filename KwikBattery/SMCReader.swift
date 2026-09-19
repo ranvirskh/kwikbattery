@@ -127,6 +127,7 @@ final class SMCReader {
         var batteryPower: Double?    // W (magnitude)
         var adapterVoltage: Double?  // V
         var adapterCurrent: Double?  // A
+        var batteryTemperature: Double?  // °C
         var batteryVoltage: Double?  // V
         var batteryCurrent: Double?  // A (signed, + = charging) – only when unambiguous
     }
@@ -142,6 +143,10 @@ final class SMCReader {
         s.batteryPower  = readDouble("PPBR").map { abs($0) }.flatMap { plausible($0, 0...300) }
         s.adapterVoltage = readDouble("VD0R").flatMap { plausible($0, 4.5...49) }
         s.adapterCurrent = readDouble("ID0R").flatMap { plausible($0, 0.01...10) }
+        // macOS 27 no longer publishes the battery temperature in IORegistry,
+        // so the SMC sensor is the only source there.
+        s.batteryTemperature = (readDouble("TB0T") ?? readDouble("TB1T"))
+            .flatMap { plausible($0, 1...80) }
 
         let voltageCandidates = readIntegerCandidates("B0AV")
             .map { Double($0) / 1000.0 }

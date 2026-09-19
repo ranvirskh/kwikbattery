@@ -13,6 +13,7 @@ struct BatteryPanelView: View {
     @EnvironmentObject private var devices: BluetoothDeviceMonitor
     @EnvironmentObject private var energy: AppEnergyMonitor
     @EnvironmentObject private var budget: AnimationBudget
+    @EnvironmentObject private var updates: UpdateChecker
     @AppStorage(SettingsKey.useFahrenheit) private var useFahrenheit = SettingsDefault.useFahrenheit
 
     @AppStorage("panel.powerExpanded") private var powerExpanded = true
@@ -21,6 +22,7 @@ struct BatteryPanelView: View {
     @AppStorage("panel.energyExpanded") private var energyExpanded = true
 
     @State private var refreshSpin = 0.0
+    @State private var confirmingUpdate = false
 
     let openSettings: () -> Void
 
@@ -30,6 +32,8 @@ struct BatteryPanelView: View {
     var body: some View {
         VStack(spacing: 6) {
             topBar
+
+            updateBanner
 
             if info.hasBattery {
                 heroCard
@@ -127,6 +131,102 @@ struct BatteryPanelView: View {
             .rotationEffect(.degrees(refreshSpin))
             CircleIconButton(systemName: "gearshape.fill", help: "Settings", action: openSettings)
         }
+    }
+
+    // MARK: - Update banner
+
+    @ViewBuilder
+    private var updateBanner: some View {
+        switch updates.state {
+        case .available(let version, _, _):
+            banner(icon: "arrow.down.circle.fill", tint: Color.blue,
+                   title: "Update available",
+                   subtitle: "Version \(version) — you have \(updates.currentVersion)") {
+                HStack(spacing: 6) {
+                    Button("Later") { updates.skipCurrentOffer() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.5))
+                    Button("Update") { confirmingUpdate = true }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.blue))
+                }
+            }
+            .confirmationDialog("Update KwikBattery to \(version)?",
+                                isPresented: $confirmingUpdate, titleVisibility: .visible) {
+                Button("Download and Install") { updates.downloadAndInstall() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("KwikBattery will download version \(version) from GitHub, check it, replace this copy and relaunch.")
+            }
+
+        case .downloading:
+            banner(icon: "arrow.down.circle", tint: Color.blue,
+                   title: "Downloading update…",
+                   subtitle: "This takes a few seconds") {
+                ProgressView().controlSize(.small)
+            }
+
+        case .readyToRelaunch:
+            banner(icon: "checkmark.circle.fill", tint: Color.green,
+                   title: "Update installed",
+                   subtitle: "Relaunch to start using it") {
+                Button("Relaunch") { updates.relaunch() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.green))
+            }
+
+        case .failed(let message):
+            banner(icon: "exclamationmark.triangle.fill", tint: Color.orange,
+                   title: "Update failed",
+                   subtitle: message) {
+                Button("Dismiss") { updates.dismiss() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.6))
+            }
+
+        case .idle, .checking, .upToDate:
+            EmptyView()
+        }
+    }
+
+    private func banner<Trailing: View>(icon: String, tint: Color, title: String, subtitle: String,
+                                        @ViewBuilder trailing: () -> Trailing) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                Text(subtitle)
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.55))
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 4)
+            trailing()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(tint.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(tint.opacity(0.35), lineWidth: 1)
+        )
+        .transition(.opacity.combined(with: .offset(y: -6)))
     }
 
     // MARK: - Hero card

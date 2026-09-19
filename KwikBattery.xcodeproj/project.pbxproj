@@ -26,6 +26,7 @@
 		13123639A928E2759BEE00C6 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A21A6ED3D65973452F31DAC /* SettingsView.swift */; };
 		1D600CF5309BDCFA1B06DA42 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86296FB89BC8C99AA36221F9 /* SettingsWindowController.swift */; };
 		FCB5850EDDE2BE26460FD292 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B8D1DF0B00DA0DE35AE5F3B /* Theme.swift */; };
+		F9E34CAADF3B6EB40F41C605 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D93ACE897FCD5E13971CEFB7 /* UpdateChecker.swift */; };
 		CCA259F070871F36040978B2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B333EF2524AA75A9AFDDCAB9 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -50,6 +51,7 @@
 		3A21A6ED3D65973452F31DAC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		86296FB89BC8C99AA36221F9 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		7B8D1DF0B00DA0DE35AE5F3B /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		D93ACE897FCD5E13971CEFB7 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		B333EF2524AA75A9AFDDCAB9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4F868D906057D0462DBB747D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		47B89E85DD4610E3C15107B4 /* KwikBattery.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KwikBattery.entitlements; sourceTree = "<group>"; };
@@ -104,6 +106,7 @@
 				3A21A6ED3D65973452F31DAC /* SettingsView.swift */,
 				86296FB89BC8C99AA36221F9 /* SettingsWindowController.swift */,
 				7B8D1DF0B00DA0DE35AE5F3B /* Theme.swift */,
+				D93ACE897FCD5E13971CEFB7 /* UpdateChecker.swift */,
 				B333EF2524AA75A9AFDDCAB9 /* Assets.xcassets */,
 				4F868D906057D0462DBB747D /* Info.plist */,
 				47B89E85DD4610E3C15107B4 /* KwikBattery.entitlements */,
@@ -199,6 +202,7 @@
 				13123639A928E2759BEE00C6 /* SettingsView.swift in Sources */,
 				1D600CF5309BDCFA1B06DA42 /* SettingsWindowController.swift in Sources */,
 				FCB5850EDDE2BE26460FD292 /* Theme.swift in Sources */,
+				F9E34CAADF3B6EB40F41C605 /* UpdateChecker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

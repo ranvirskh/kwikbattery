@@ -73,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &cancellables)
 
         monitor.start()
+        UpdateChecker.shared.checkIfDue()
         devices.start()
     }
 

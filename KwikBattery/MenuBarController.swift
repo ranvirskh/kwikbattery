@@ -28,6 +28,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         .environmentObject(devices)
         .environmentObject(AppEnergyMonitor.shared)
         .environmentObject(AnimationBudget.shared)
+        .environmentObject(UpdateChecker.shared)
         .environment(\.colorScheme, .dark)
 
         let hosting = NSHostingController(rootView: panel)
@@ -72,6 +73,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             BluetoothDeviceMonitor.shared.refreshIfStale()
             AppEnergyMonitor.shared.setActive(true)
             AnimationBudget.shared.setActive(true)
+            UpdateChecker.shared.checkIfDue()
             NSApp.activate()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()

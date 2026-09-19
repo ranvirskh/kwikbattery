@@ -140,6 +140,7 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             HStack {
+                Button("Check for Updates…") { UpdateChecker.shared.check() }
                 Spacer()
                 Button("Quit KwikBattery") { NSApp.terminate(nil) }
             }

@@ -27,6 +27,8 @@
 	<!-- Menu-bar-only app: no Dock icon, no app menu. -->
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>KwikBattery uses the local network to read the battery level of your iPhone or iPad over Wi-Fi.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>KwikBattery shows the battery level of your connected Bluetooth devices, such as AirPods, mice and keyboards.</string>
 	<key>NSHumanReadableCopyright</key>

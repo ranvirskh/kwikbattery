@@ -335,6 +335,9 @@ struct BatteryPanelView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             VStack(spacing: 0) {
+                if devices.localNetworkLikelyBlocked {
+                    localNetworkHint
+                }
                 ForEach(Array(list.enumerated()), id: \.element.id) { index, device in
                     if index > 0 {
                         divider.padding(.leading, 30)
@@ -343,6 +346,36 @@ struct BatteryPanelView: View {
                 }
             }
         }
+    }
+
+    /// Shown when an iPhone/iPad can't be seen over Wi-Fi because macOS hasn't
+    /// granted KwikBattery Local Network access.
+    private var localNetworkHint: some View {
+        HStack(spacing: 7) {
+            Image(safeSystemName: "wifi.exclamationmark", fallback: "wifi.slash")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.orange)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("iPhone not showing?")
+                    .font(PanelFont.body(11))
+                Text("Allow KwikBattery under Local Network")
+                    .font(.system(size: 9, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.5))
+            }
+            Spacer(minLength: 4)
+            Button {
+                SystemSettingsLink.openLocalNetworkSettings()
+            } label: {
+                Text("Open")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.orange)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.orange.opacity(0.16)))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 6)
     }
 
     private var noBatteryCard: some View {
@@ -616,6 +649,19 @@ private struct DeviceRow: View {
 // MARK: - System Settings deep link
 
 enum SystemSettingsLink {
+    /// Privacy & Security › Local Network
+    static func openLocalNetworkSettings() {
+        let candidates = [
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork",
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_LocalNetwork",
+        ]
+        for string in candidates {
+            if let url = URL(string: string), NSWorkspace.shared.open(url) {
+                return
+            }
+        }
+    }
+
     static func openBatterySettings() {
         let candidates = [
             "x-apple.systempreferences:com.apple.preference.battery",

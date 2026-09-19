@@ -75,6 +75,9 @@ final class BluetoothDeviceMonitor: ObservableObject {
     @Published private(set) var devices: [BluetoothDevice] = []
     @Published private(set) var isLoading = false
     @Published private(set) var hasLoadedOnce = false
+    /// True when the iPhone tools are installed but nothing was found over
+    /// Wi-Fi — almost always the missing Local Network permission.
+    @Published private(set) var localNetworkLikelyBlocked = false
 
     private var timerCancellable: AnyCancellable?
     private var lastRefresh: Date = .distantPast
@@ -109,6 +112,8 @@ final class BluetoothDeviceMonitor: ObservableObject {
         Task {
             let result = await Self.loadDevices()
             self.devices = result
+            self.localNetworkLikelyBlocked = Self.mobileToolsInstalled()
+                && !result.contains { $0.kind == .phone }
             self.isLoading = false
             self.hasLoadedOnce = true
         }
@@ -244,13 +249,15 @@ final class BluetoothDeviceMonitor: ObservableObject {
                 let battery = parseKeyValues(batteryText)
                 guard let level = battery["BatteryCurrentCapacity"].flatMap({ Int($0) }) else { continue }
 
-                // One call for all the device facts instead of three separate
-                // round trips — much faster, and far less likely to time out.
-                let details = parseKeyValues(runTool(info, base, timeout: queryTimeout) ?? "")
-                let name = (details["DeviceName"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                let isPad = (details["DeviceClass"] ?? "").lowercased().contains("ipad")
-                let productType = (details["ProductType"] ?? "")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                // Ask for each field by name: a bare `ideviceinfo` dumps the
+                // device's whole property list, which is slow and needlessly large.
+                func value(_ key: String) -> String {
+                    (runTool(info, base + ["-k", key], timeout: queryTimeout) ?? "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                let name = value("DeviceName")
+                let isPad = value("DeviceClass").lowercased().contains("ipad")
+                let productType = value("ProductType")
                 let modelName = AppleModelNames.name(forProductType: productType)
                     ?? (isPad ? "iPad" : "iPhone")
 
@@ -272,6 +279,11 @@ final class BluetoothDeviceMonitor: ObservableObject {
             }
         }
         return result
+    }
+
+    /// Are the optional libimobiledevice tools installed?
+    nonisolated static func mobileToolsInstalled() -> Bool {
+        findTool("idevice_id") != nil && findTool("ideviceinfo") != nil
     }
 
     nonisolated static func findTool(_ name: String) -> String? {
@@ -296,6 +308,22 @@ final class BluetoothDeviceMonitor: ObservableObject {
         } catch {
             return nil
         }
+
+        // Drain the pipe on a background thread WHILE the tool runs. A pipe
+        // only buffers ~64 KB: waiting for exit before reading deadlocks as
+        // soon as a tool prints more than that (e.g. a full `ideviceinfo`
+        // property list), which looks exactly like a timeout.
+        let collected = OutputBuffer()
+        let reader = Thread {
+            let handle = pipe.fileHandleForReading
+            while true {
+                let chunk = handle.availableData
+                if chunk.isEmpty { break }
+                collected.append(chunk)
+            }
+        }
+        reader.start()
+
         let deadline = Date().addingTimeInterval(timeout)
         while process.isRunning && Date() < deadline {
             Thread.sleep(forTimeInterval: 0.05)
@@ -304,9 +332,31 @@ final class BluetoothDeviceMonitor: ObservableObject {
             process.terminate()
             return nil
         }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        // Give the reader a moment to pick up whatever is still buffered.
+        let drainDeadline = Date().addingTimeInterval(1.0)
+        while !reader.isFinished && Date() < drainDeadline {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
         guard process.terminationStatus == 0 else { return nil }
-        return String(data: data, encoding: .utf8)
+        return String(data: collected.data, encoding: .utf8)
+    }
+
+    /// Thread-safe accumulator for a child process's output.
+    final class OutputBuffer: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storage = Data()
+
+        func append(_ chunk: Data) {
+            lock.lock()
+            storage.append(chunk)
+            lock.unlock()
+        }
+
+        var data: Data {
+            lock.lock()
+            defer { lock.unlock() }
+            return storage
+        }
     }
 
     /// Parses "Key: value" lines.
@@ -319,6 +369,61 @@ final class BluetoothDeviceMonitor: ObservableObject {
             result[key] = value
         }
         return result
+    }
+
+    // MARK: - Diagnostics
+
+    /// Prints exactly what the app's own iPhone lookup does, step by step.
+    /// Used by `KwikBattery --idevice-diag` (see build.sh).
+    nonisolated static func diagnosticReport() -> String {
+        var lines: [String] = []
+        let idList = findTool("idevice_id")
+        let info = findTool("ideviceinfo")
+        lines.append("idevice_id  : \(idList ?? "NOT FOUND")")
+        lines.append("ideviceinfo : \(info ?? "NOT FOUND")")
+        guard let idList, let info else {
+            lines.append("→ tools missing, giving up")
+            return lines.joined(separator: "\n")
+        }
+
+        for (flag, connection) in [("-l", "USB"), ("-n", "Wi-Fi")] {
+            let started = Date()
+            let listing = runTool(idList, [flag], timeout: 8)
+            let elapsed = String(format: "%.2fs", Date().timeIntervalSince(started))
+            lines.append("")
+            lines.append("[\(connection)] idevice_id \(flag) → \(listing == nil ? "nil (timeout/failure)" : "ok") in \(elapsed)")
+            let udids = (listing ?? "")
+                .split(whereSeparator: \.isNewline)
+                .map { String($0.split(separator: " ").first ?? "") }
+                .filter { !$0.isEmpty }
+            lines.append("  UDIDs: \(udids.isEmpty ? "(none)" : udids.joined(separator: ", "))")
+
+            for udid in udids {
+                var base = ["-u", udid]
+                if connection == "Wi-Fi" { base.insert("-n", at: 0) }
+                let t0 = Date()
+                let battery = runTool(info, base + ["-q", "com.apple.mobile.battery"], timeout: 15)
+                let dt = String(format: "%.2fs", Date().timeIntervalSince(t0))
+                lines.append("  battery query (\(dt)): \(battery == nil ? "nil (timeout/failure)" : "ok")")
+                if let battery {
+                    let parsed = parseKeyValues(battery)
+                    lines.append("    raw bytes: \(battery.utf8.count), keys: \(parsed.count)")
+                    lines.append("    BatteryCurrentCapacity = \(parsed["BatteryCurrentCapacity"] ?? "MISSING")")
+                    lines.append("    first line: \(battery.split(whereSeparator: \.isNewline).first.map(String.init) ?? "(empty)")")
+                }
+                let t1 = Date()
+                let name = runTool(info, base + ["-k", "DeviceName"], timeout: 15)
+                lines.append("  DeviceName (\(String(format: "%.2fs", Date().timeIntervalSince(t1)))): \(name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "nil")")
+            }
+        }
+
+        lines.append("")
+        let devices = readAppleMobileDevices()
+        lines.append("readAppleMobileDevices() returned \(devices.count) device(s)")
+        for d in devices {
+            lines.append("  • \(d.name) — \(d.mainLevel.map { "\($0)%" } ?? "no level") via \(d.connection), model \(d.model ?? "?")")
+        }
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - Helpers

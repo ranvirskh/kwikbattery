@@ -16,6 +16,10 @@ struct KwikBatteryApp: App {
 
     init() {
         // `KwikBattery --smc-diag` prints live SMC readings and exits (used by build.sh).
+        if CommandLine.arguments.contains("--idevice-diag") {
+            print(BluetoothDeviceMonitor.diagnosticReport())
+            exit(0)
+        }
         if CommandLine.arguments.contains("--smc-diag") {
             for round in 1...3 {
                 print("--- SMC reading \(round) ---")

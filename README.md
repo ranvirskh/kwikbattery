@@ -1,8 +1,6 @@
 # KwikBattery
 
 A free, native macOS menu bar app for your battery and power. Every feature is included: no paywalls, subscriptions, accounts or tracking.
-## View
-<img width="323" height="857" alt="image" src="https://github.com/user-attachments/assets/184cbb7f-14a9-472d-bdd9-c2b4109732f3" />
 
 ## Features
 
@@ -32,7 +30,18 @@ Requires macOS 14 Sonoma or later. Works on Apple silicon and Intel Macs. Detail
 brew install libimobiledevice
 ```
 
-KwikBattery detects the tool on its own and shows your iPhone's model and battery level over USB or Wi-Fi.
+KwikBattery picks the tool up on its own and shows your iPhone's model and battery level.
+
+**Over Wi-Fi, macOS also needs one permission.** Finding a device on your network
+counts as local network access, and without it KwikBattery simply sees no phone:
+
+1. Open **System Settings › Privacy & Security › Local Network**.
+2. Turn **KwikBattery** on. (If it isn't listed yet, open the dropdown once so it asks.)
+
+KwikBattery shows a reminder with an **Open** button in Connected Devices when this
+is the likely reason your phone is missing. Your iPhone must also be on the same
+Wi-Fi network, unlocked for the first read, and paired with this Mac — plug it in
+once and tap **Trust**. In Finder, tick "Show this iPhone when on Wi-Fi".
 
 ## Help test
 

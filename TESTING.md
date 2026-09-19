@@ -23,6 +23,12 @@ Thanks for helping test. This takes about five minutes.
 
 Note which rows look wrong, and take screenshots if you can.
 
+
+## If your iPhone doesn't appear
+
+Wi-Fi device lookups need **System Settings › Privacy & Security › Local Network**
+turned on for KwikBattery. Check that first, then re-open the dropdown.
+
 ## 3. Send a diagnostic report
 
 Paste this into **Terminal**. It creates `kwikbattery-report.txt` on your Desktop:

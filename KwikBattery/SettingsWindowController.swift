@@ -19,6 +19,7 @@ final class SettingsWindowController {
             let root = SettingsView()
                 .environmentObject(NotificationManager.shared)
                 .environmentObject(AnimationBudget.shared)
+                .environmentObject(HealthHistory.shared)
 
             let hosting = NSHostingController(rootView: root)
             let newWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 680),

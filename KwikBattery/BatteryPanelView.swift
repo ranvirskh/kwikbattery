@@ -25,6 +25,7 @@ struct BatteryPanelView: View {
 
     @State private var refreshSpin = 0.0
     @State private var confirmingUpdate = false
+    @State private var showingHealthHistory = false
 
     let openSettings: () -> Void
 
@@ -43,7 +44,17 @@ struct BatteryPanelView: View {
 
                 PanelSection("Battery Information", icon: "info", tint: Color.blue,
                              isExpanded: $infoExpanded) {
-                    batteryInformation
+                    if showingHealthHistory {
+                        HealthHistoryView {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                showingHealthHistory = false
+                            }
+                        }
+                        .transition(.opacity)
+                    } else {
+                        batteryInformation
+                            .transition(.opacity)
+                    }
                 }
                 .appearEffect(delay: 0.05)
 
@@ -340,6 +351,19 @@ struct BatteryPanelView: View {
                         LevelBar(fraction: (info.healthPercent ?? 0) / 100.0, tint: healthGrade.color, height: 3)
                     }
                 }
+                .overlay(alignment: .topTrailing) {
+                    Image(systemName: "chart.xyaxis.line")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(healthGrade.color.opacity(0.7))
+                        .padding(5)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        showingHealthHistory = true
+                    }
+                }
+                .help("Show battery health over time")
 
                 InfoTile(icon: "arrow.triangle.2.circlepath", label: "Cycles",
                          value: info.cycleCount.map { "\($0)" } ?? "—",
@@ -683,6 +707,8 @@ private struct EnergyRow: View {
 
 private struct DeviceRow: View {
     let device: BluetoothDevice
+    /// Ticks every 30s while the panel is open so ages stay honest.
+    @State private var now = Date()
 
     private let water = Color(red: 0.38, green: 0.80, blue: 1.00)
 
@@ -708,9 +734,11 @@ private struct DeviceRow: View {
         return 0
     }
 
-    /// Readings older than a minute are treated as stale.
+    /// Readings older than a minute are treated as stale. `now` is driven by
+    /// the panel's clock so this re-evaluates while the popover is open —
+    /// otherwise a row created while fresh would look fresh indefinitely.
     private var staleness: String? {
-        let age = Date().timeIntervalSince(device.lastSeen)
+        let age = now.timeIntervalSince(device.lastSeen)
         guard age > 60 else { return nil }
         let minutes = Int(age / 60)
         if minutes < 60 { return "\(minutes) min ago" }
@@ -774,6 +802,7 @@ private struct DeviceRow: View {
         }
         .padding(.vertical, 3)
         .opacity(isStale ? 0.45 : 1)
+        .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { now = $0 }
     }
 
     @ViewBuilder

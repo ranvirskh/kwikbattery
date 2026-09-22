@@ -92,8 +92,16 @@ final class BluetoothDeviceMonitor: ObservableObject {
     /// answering) stays listed as a stale entry instead of vanishing.
     private var remembered: [String: BluetoothDevice] = [:]
 
-    /// A remembered reading is dropped once it's this old.
-    private let rememberFor: TimeInterval = 2 * 60 * 60
+    /// How long a device that has stopped reporting stays listed (dimmed).
+    /// A locked iPhone is still sitting next to you, so its last reading stays
+    /// useful for a while. A keyboard that stops answering is usually out of
+    /// range or switched off, where an hour-old level would just mislead.
+    private let rememberPhoneFor: TimeInterval = 60 * 60
+    private let rememberAccessoryFor: TimeInterval = 10 * 60
+
+    private func rememberWindow(for device: BluetoothDevice) -> TimeInterval {
+        device.kind == .phone ? rememberPhoneFor : rememberAccessoryFor
+    }
 
     private init() {}
 
@@ -115,6 +123,7 @@ final class BluetoothDeviceMonitor: ObservableObject {
         timerCancellable = nil
     }
 
+    /// Called when the popover opens; avoids re-running system_profiler constantly.
     /// Called when the popover opens: refresh unless we just did.
     func refreshIfStale() {
         if Date().timeIntervalSince(lastRefresh) > 15 {
@@ -140,6 +149,32 @@ final class BluetoothDeviceMonitor: ObservableObject {
             self.isLoading = false
             self.hasLoadedOnce = true
         }
+    }
+
+    /// Keeps devices that answered recently but didn't this time — an iPhone
+    /// that has locked, AirPods back in the case, and so on. They're shown
+    /// dimmed with their age rather than disappearing from the list.
+    private func merge(fresh: [BluetoothDevice]) -> [BluetoothDevice] {
+        let now = Date()
+        for device in fresh {
+            var stamped = device
+            stamped.lastSeen = now
+            remembered[device.id] = stamped
+        }
+        remembered = remembered.filter { entry in
+            now.timeIntervalSince(entry.value.lastSeen) < rememberWindow(for: entry.value)
+        }
+
+        let freshIDs = Set(fresh.map { $0.id })
+        let stale = remembered.values
+            .filter { !freshIDs.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+        return fresh.map { device -> BluetoothDevice in
+            var stamped = device
+            stamped.lastSeen = now
+            return stamped
+        } + stale
     }
 
     // MARK: - Loading (off the main actor)

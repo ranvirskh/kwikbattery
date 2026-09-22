@@ -38,6 +38,7 @@ struct KwikBatteryApp: App {
             SettingsView()
                 .environmentObject(NotificationManager.shared)
                 .environmentObject(AnimationBudget.shared)
+                .environmentObject(HealthHistory.shared)
         }
     }
 }
@@ -69,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .dropFirst()
             .sink { info in
                 notifications.evaluate(info)
+                HealthHistory.shared.record(info)
             }
             .store(in: &cancellables)
 

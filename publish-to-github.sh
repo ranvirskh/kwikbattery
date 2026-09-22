@@ -68,9 +68,41 @@ echo "==> Building the universal release"
 bash build.sh --release
 ZIP="release/KwikBattery-$VERSION.zip"
 
-NOTES="Free menu bar battery monitor for macOS 14 or later (Apple silicon and Intel).
+NOTES="Free menu bar battery monitor for macOS 14 Sonoma or later. Universal build — Apple silicon and Intel.
 
-**Install:** unzip, move KwikBattery.app to Applications, and open it. This build isn't notarized by Apple, so macOS will show a warning. Go to System Settings › Privacy & Security and click **Open Anyway**."
+## How to install
+
+**1.** Download **KwikBattery-$VERSION.zip** below. Safari unzips it automatically; in Chrome or Firefox, double-click the .zip in your Downloads folder.
+
+**2.** Drag **KwikBattery.app** into your **Applications** folder.
+
+**3.** Double-click it. macOS will refuse to open it the first time:
+- If it says *Apple could not verify \"KwikBattery\" is free of malware* — click **Done** and continue to step 4.
+- If it says *\"KwikBattery\" is damaged and can't be opened* — click **Cancel** and use the Terminal method below instead. That wording means macOS won't show an Open Anyway button.
+
+**4.** Approve it:
+1. Apple menu → **System Settings**
+2. Sidebar → **Privacy & Security**
+3. Scroll to the bottom, to the **Security** section
+4. Click **Open Anyway** next to *\"KwikBattery\" was blocked to protect your Mac*
+5. Authenticate with Touch ID or your login password
+6. Click **Open Anyway** in the confirmation dialog
+
+**5.** The battery icon appears in your menu bar. There is no Dock icon and no window — click the menu bar icon.
+
+You only do this once. Updates installed from inside the app skip it.
+
+## Terminal method
+
+Faster, and the required fix if you saw the \"damaged\" message. Open Terminal, paste, press Return:
+
+\`\`\`
+xattr -dr com.apple.quarantine /Applications/KwikBattery.app && open /Applications/KwikBattery.app
+\`\`\`
+
+## Why
+
+macOS quarantines anything downloaded through a browser and won't launch it unless it's notarized by Apple, which needs a paid developer account. KwikBattery is signed locally instead. The app is not damaged — macOS just can't tie it to a paying developer. All source is in this repo if you'd rather build it yourself."
 
 if gh release view "v$VERSION" --repo "$OWNER/$REPO_NAME" >/dev/null 2>&1; then
   echo "==> Updating release v$VERSION"

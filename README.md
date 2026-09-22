@@ -18,11 +18,65 @@ A free, native macOS menu bar app for your battery and power. Every feature is i
 
 ## Install
 
-1. Download `KwikBattery-x.y.zip` from the [Releases](https://github.com/ranvirskh/kwikbattery/releases) page and unzip it.
-2. Move **KwikBattery.app** to your **Applications** folder and open it.
-3. This build isn't notarized by Apple, so macOS will warn that it can't verify the app. To open it anyway, go to **System Settings › Privacy & Security** and click **Open Anyway** next to the KwikBattery message.
+**1. Download it.**
+Go to the [Releases](https://github.com/ranvirskh/kwikbattery/releases) page and
+click `KwikBattery-x.y.zip` under **Assets**. It lands in your **Downloads**
+folder. Safari unzips it for you; in Chrome or Firefox, double-click the `.zip`.
 
-Requires macOS 14 Sonoma or later. Works on Apple silicon and Intel Macs. Detailed power-flow data is available on Apple silicon only.
+**2. Move it to Applications.**
+Open a Finder window, drag **KwikBattery.app** from Downloads into
+**Applications**.
+
+**3. Open it — macOS will refuse the first time.**
+Double-click **KwikBattery**. You'll get one of two dialogs:
+
+- *"Apple could not verify "KwikBattery" is free of malware…"* → click **Done**.
+- *""KwikBattery" is damaged and can't be opened."* → click **Cancel**, then skip
+  to the Terminal method below. This wording means macOS won't offer the
+  Open Anyway button, so clicking through Settings won't work.
+
+**4. Approve it in System Settings.**
+
+1. Click the  menu in the top-left corner → **System Settings**.
+2. In the sidebar, scroll down and click **Privacy & Security**.
+3. Scroll the right-hand pane all the way to the bottom, to the **Security**
+   section.
+4. You'll see: *""KwikBattery" was blocked to protect your Mac."* Click the
+   **Open Anyway** button next to it.
+5. Authenticate with Touch ID, or type your Mac login password and click
+   **Unlock**.
+6. A final dialog asks *"Are you sure you want to open it?"* — click
+   **Open Anyway**.
+
+**5. Done.** The battery icon appears in your menu bar, on the right. There's no
+Dock icon and no window — click the menu bar icon to open the panel.
+
+You only do this once. Updates you install from inside the app don't trigger it
+again.
+
+### Terminal method (faster, and the fix if you got the "damaged" message)
+
+Open **Terminal** (Applications › Utilities › Terminal, or press ⌘Space and type
+"Terminal"), paste this and press Return:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/KwikBattery.app && open /Applications/KwikBattery.app
+```
+
+Nothing prints if it worked — the app just opens.
+
+### Why any of this is necessary
+
+macOS tags every file a browser downloads with a "quarantine" flag, and refuses
+to launch a quarantined app unless it's notarized by Apple. Notarizing requires
+a paid Apple Developer account ($99/year), which KwikBattery doesn't have, so
+the app is signed locally instead. The app isn't damaged and nothing is wrong
+with it; macOS simply can't trace it to a paying developer. You can read every
+line of source in this repo and build it yourself if you'd rather not take my
+word for it.
+
+Requires macOS 14 Sonoma or later. Works on Apple silicon and Intel Macs.
+Detailed power-flow data is available on Apple silicon only.
 
 ### Optional: iPhone and iPad battery levels
 

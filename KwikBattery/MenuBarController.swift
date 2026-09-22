@@ -31,6 +31,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         .environmentObject(AppEnergyMonitor.shared)
         .environmentObject(AnimationBudget.shared)
         .environmentObject(UpdateChecker.shared)
+        .environmentObject(HealthHistory.shared)
         .environment(\.colorScheme, .dark)
 
         let hosting = NSHostingController(rootView: panel)

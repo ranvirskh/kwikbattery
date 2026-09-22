@@ -16,6 +16,8 @@
 		6E25ED4B9CCA1C572A38E4C8 /* BatteryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = F93334896EA6408070770CDF /* BatteryMonitor.swift */; };
 		A3183438614DE27C03F20C44 /* BatteryPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 635C95DE95965515B6666F16 /* BatteryPanelView.swift */; };
 		ABA648D2BD96DC4DC6FB7658 /* BluetoothDeviceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBB0C97F81FEDA84ADB74294 /* BluetoothDeviceMonitor.swift */; };
+		09D4D7D281D370A49790FB43 /* HealthHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9826573E9D974A8ABC1CF03 /* HealthHistory.swift */; };
+		E2E569C667D7F2E3D1D928B1 /* HealthHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B0D957125EBE059C24D1F8 /* HealthHistoryView.swift */; };
 		34709F8070B87042D01C933E /* KwikBatteryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C087E5D265B75A132A00A7DD /* KwikBatteryApp.swift */; };
 		CB016DA789272C07F3979AB7 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13FE6295CEAC7DDC1CAF158 /* MenuBarController.swift */; };
 		50E491EAEB049E1FE2338370 /* MenuBarIconRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D27AA9F7E6149772D3FBA506 /* MenuBarIconRenderer.swift */; };
@@ -41,6 +43,8 @@
 		F93334896EA6408070770CDF /* BatteryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryMonitor.swift; sourceTree = "<group>"; };
 		635C95DE95965515B6666F16 /* BatteryPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryPanelView.swift; sourceTree = "<group>"; };
 		EBB0C97F81FEDA84ADB74294 /* BluetoothDeviceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothDeviceMonitor.swift; sourceTree = "<group>"; };
+		F9826573E9D974A8ABC1CF03 /* HealthHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthHistory.swift; sourceTree = "<group>"; };
+		B1B0D957125EBE059C24D1F8 /* HealthHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthHistoryView.swift; sourceTree = "<group>"; };
 		C087E5D265B75A132A00A7DD /* KwikBatteryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KwikBatteryApp.swift; sourceTree = "<group>"; };
 		A13FE6295CEAC7DDC1CAF158 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		D27AA9F7E6149772D3FBA506 /* MenuBarIconRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarIconRenderer.swift; sourceTree = "<group>"; };
@@ -96,6 +100,8 @@
 				F93334896EA6408070770CDF /* BatteryMonitor.swift */,
 				635C95DE95965515B6666F16 /* BatteryPanelView.swift */,
 				EBB0C97F81FEDA84ADB74294 /* BluetoothDeviceMonitor.swift */,
+				F9826573E9D974A8ABC1CF03 /* HealthHistory.swift */,
+				B1B0D957125EBE059C24D1F8 /* HealthHistoryView.swift */,
 				C087E5D265B75A132A00A7DD /* KwikBatteryApp.swift */,
 				A13FE6295CEAC7DDC1CAF158 /* MenuBarController.swift */,
 				D27AA9F7E6149772D3FBA506 /* MenuBarIconRenderer.swift */,
@@ -192,6 +198,8 @@
 				6E25ED4B9CCA1C572A38E4C8 /* BatteryMonitor.swift in Sources */,
 				A3183438614DE27C03F20C44 /* BatteryPanelView.swift in Sources */,
 				ABA648D2BD96DC4DC6FB7658 /* BluetoothDeviceMonitor.swift in Sources */,
+				09D4D7D281D370A49790FB43 /* HealthHistory.swift in Sources */,
+				E2E569C667D7F2E3D1D928B1 /* HealthHistoryView.swift in Sources */,
 				34709F8070B87042D01C933E /* KwikBatteryApp.swift in Sources */,
 				CB016DA789272C07F3979AB7 /* MenuBarController.swift in Sources */,
 				50E491EAEB049E1FE2338370 /* MenuBarIconRenderer.swift in Sources */,

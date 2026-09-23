@@ -434,7 +434,43 @@ final class BatteryMonitor: ObservableObject {
             }
         }
 
+        // --- Sanity-check the discharge estimate -----------------------------
+        // macOS extrapolates "Time to Empty" from the draw at this instant, so a
+        // Mac that happens to be idle for a moment reports a run time the battery
+        // could never physically sustain. (An Intel MacBook reporting 29 hours at
+        // 82% is this: real, momentary, and useless as a prediction.)
+        //
+        // Compare the estimate against the energy actually left in the pack
+        // divided by a floor draw of 2 W — below what any Mac uses while awake,
+        // so a genuine long idle estimate on Apple silicon still passes. Anything
+        // above that ceiling is dropped rather than shown, and the panel says
+        // "Calculating" until macOS produces a figure that holds up.
+        if let minutes = info.timeToEmptyMinutes,
+           !isPlausibleRunTime(minutes: minutes, info: info) {
+            info.timeToEmptyMinutes = nil
+        }
+
         return info
+    }
+
+    /// True when `minutes` is within what the remaining charge could physically last.
+    nonisolated private static func isPlausibleRunTime(minutes: Int, info: BatteryInfo) -> Bool {
+        // Lower than the Mac could possibly draw while awake, so this only ever
+        // catches nonsense. Intel laptops idle around 8-12 W even with the screen
+        // dim; Apple silicon goes far lower, which is why a Mac Air can honestly
+        // report 20+ hours and must not be clamped.
+        #if arch(x86_64)
+        let floorWatts = 5.0
+        #else
+        let floorWatts = 2.0
+        #endif
+        guard let mAh = info.currentCapacity, mAh > 0,
+              let volts = info.voltage, volts > 0 else {
+            // No energy reading on this Mac: fall back to a flat 24-hour ceiling.
+            return minutes <= 24 * 60
+        }
+        let wattHours = Double(mAh) * volts / 1000.0
+        return Double(minutes) <= wattHours / floorWatts * 60.0
     }
 
     /// Maps IOKit's health strings to what System Settings shows.

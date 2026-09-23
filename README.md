@@ -103,7 +103,20 @@ If you have an **Intel Mac** or an older Apple silicon model, please follow [TES
 
 ## Build from source
 
-You only need Apple's Command Line Tools (`xcode-select --install`). Xcode isn't required.
+**On macOS 26 and earlier,** Apple's Command Line Tools are enough
+(`xcode-select --install`).
+
+**On macOS 27 and later, you need Xcode.** That release turned SwiftUI's
+`@State` and friends into Swift macros, and the plugin that expands them at
+build time ships only inside Xcode — the Command Line Tools don't include it.
+After installing Xcode, point the toolchain at it once:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
+
+`build.sh` checks for the plugin before compiling and tells you if it's missing,
+rather than failing with a few hundred lines of macro errors.
 
 ```bash
 git clone https://github.com/ranvirskh/kwikbattery.git

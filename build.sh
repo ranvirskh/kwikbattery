@@ -23,7 +23,7 @@ MODE="${1:-}"
 
 APP_NAME="KwikBattery"
 BUNDLE_ID="com.kwikbattery.KwikBattery"
-VERSION="1.5"
+VERSION="1.6"
 BUILD_NUMBER="1"
 MIN_MACOS="14.0"
 
@@ -71,6 +71,45 @@ fi
 
 SDK="$(xcrun --show-sdk-path --sdk macosx)"
 
+# --- SwiftUI's macro plugin --------------------------------------------------
+# macOS 27 turned SwiftUI's @State, @AppStorage and friends into Swift macros,
+# which a plugin binary expands at build time. Two things make that awkward here:
+#
+#   1. The plugin ships only with Xcode. The Command Line Tools carry
+#      libSwiftMacros and libObservationMacros, but not libSwiftUIMacros.
+#   2. Even with Xcode installed, it lives under the *platform* directory
+#      (Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins), not in
+#      the toolchain next to swiftc. Xcode passes that path itself when it drives
+#      a build; bare swiftc doesn't, so we pass it with -plugin-path below.
+#
+# Without it the build fails with a few hundred lines of "external macro
+# implementation type ... could not be found", which points at the wrong thing
+# entirely, so check up front and say what's actually wrong.
+PLATFORM_PLUGINS="$(xcrun --show-sdk-platform-path --sdk macosx 2>/dev/null || true)/Developer/usr/lib/swift/host/plugins"
+TOOLCHAIN_PLUGINS="$(dirname "$(xcrun --find swiftc)")/../lib/swift/host/plugins"
+
+PLUGIN_ARGS=()
+if [[ -d "$PLATFORM_PLUGINS" ]]; then
+  PLUGIN_ARGS+=(-plugin-path "$PLATFORM_PLUGINS")
+fi
+
+SDK_MAJOR="$(xcrun --show-sdk-version 2>/dev/null | cut -d. -f1)"
+if [[ "$SDK_MAJOR" =~ ^[0-9]+$ ]] && (( SDK_MAJOR >= 27 )) \
+   && [[ ! -f "$PLATFORM_PLUGINS/libSwiftUIMacros.dylib" \
+      && ! -f "$TOOLCHAIN_PLUGINS/libSwiftUIMacros.dylib" ]]; then
+  echo "SwiftUI's macro plugin (libSwiftUIMacros.dylib) wasn't found in either:"
+  echo "    $PLATFORM_PLUGINS"
+  echo "    $TOOLCHAIN_PLUGINS"
+  echo ""
+  echo "On the macOS $SDK_MAJOR SDK, SwiftUI's @State is a Swift macro and only"
+  echo "Xcode ships the plugin that expands it. The Command Line Tools are not"
+  echo "enough on their own."
+  echo ""
+  echo "Install Xcode, open it once, then point the toolchain at it:"
+  echo "    sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"
+  exit 1
+fi
+
 # Build in a temp folder: iCloud-synced folders like Documents attach
 # Finder metadata that makes codesign fail ("resource fork ... detritus").
 OUT="${TMPDIR:-/tmp}/kwikbattery-build"
@@ -89,6 +128,7 @@ compile() {  # $1 = arch, $2 = output path
     -target "$1-apple-macos$MIN_MACOS" \
     -sdk "$SDK" \
     -module-name "$APP_NAME" \
+    ${PLUGIN_ARGS[@]+"${PLUGIN_ARGS[@]}"} \
     "$SRC"/*.swift \
     -o "$2"
 }

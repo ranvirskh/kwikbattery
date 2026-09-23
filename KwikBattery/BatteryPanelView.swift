@@ -309,7 +309,8 @@ struct BatteryPanelView: View {
                         .tracking(0.8)
                         .foregroundStyle(Color.white.opacity(0.45))
                     Text(timeValue)
-                        .font(PanelFont.title(15))
+                        // "Calculating" needs more room than "29h 6m" does.
+                        .font(PanelFont.title(timeValue.count > 7 ? 11 : 15))
                         .monospacedDigit()
                         .contentTransition(.numericText())
                 }
@@ -603,9 +604,11 @@ struct BatteryPanelView: View {
     private var timeValue: String {
         switch info.state {
         case .charging:
-            return info.timeToFullMinutes.map { Format.duration(minutes: $0) } ?? "…"
+            return info.timeToFullMinutes.map { Format.duration(minutes: $0) } ?? "Calculating"
         case .discharging:
-            return info.timeToEmptyMinutes.map { Format.duration(minutes: $0) } ?? "…"
+            // nil here means macOS hasn't produced a figure yet, or produced one
+            // the battery couldn't physically sustain (see isPlausibleRunTime).
+            return info.timeToEmptyMinutes.map { Format.duration(minutes: $0) } ?? "Calculating"
         case .full:        return "Full"
         case .notCharging: return "On AC"
         case .noBattery:   return "—"

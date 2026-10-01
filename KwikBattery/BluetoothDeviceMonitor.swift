@@ -105,13 +105,39 @@ final class BluetoothDeviceMonitor: ObservableObject {
 
     private init() {}
 
-    /// One scan at launch, then a slow periodic scan. Simple and predictable:
-    /// devices come and go (phone locks, AirPods go in the case), so the list
-    /// has to be re-checked on a timer rather than cached cleverly.
-    /// The cost is one `system_profiler` per interval, which is modest.
+    /// Scanning is the most expensive thing this app does: one `system_profiler`
+    /// plus, when libimobiledevice is installed, an `idevice_id` and several
+    /// `ideviceinfo` calls per device. At one scan a minute that was ~1,440 runs
+    /// a day, nearly all of them refreshing a list nobody was looking at.
+    ///
+    /// But it can't stop entirely either. A phone is only detectable while it is
+    /// unlocked and reachable, so the background scans are what *catch* it; the
+    /// remember-for-an-hour window then keeps it on screen afterwards. With no
+    /// background scanning there is nothing to remember, and the phone simply
+    /// stops appearing.
+    ///
+    /// So: a slow background scan to keep catching devices, and the faster one
+    /// in `setActive(true)` only while the panel is actually open.
+    private let backgroundInterval: TimeInterval = 600   // 10 minutes
+    private let foregroundInterval: TimeInterval = 60
+
     func start() {
         refresh()
-        let interval: TimeInterval = AppSettings.lowPowerMode ? 300 : 60
+        scheduleScan(every: AppSettings.lowPowerMode ? 1800 : backgroundInterval)
+    }
+
+    /// Switches between the fast scan used while the panel is open and the slow
+    /// background one. Never stops scanning altogether -- see `start()`.
+    func setActive(_ active: Bool) {
+        if active {
+            scheduleScan(every: AppSettings.lowPowerMode ? 300 : foregroundInterval)
+        } else {
+            scheduleScan(every: AppSettings.lowPowerMode ? 1800 : backgroundInterval)
+        }
+    }
+
+    private func scheduleScan(every interval: TimeInterval) {
+        timerCancellable?.cancel()
         timerCancellable = Timer.publish(every: interval, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.refresh() }

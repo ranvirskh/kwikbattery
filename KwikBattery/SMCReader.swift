@@ -27,12 +27,14 @@
 //
 //  Keys used:
 //     PSTR  total system power (W)        PDTR  power coming in from the adapter (W)
-//     PPBR  battery power (W)             VD0R  adapter input voltage (V)
-//     ID0R  adapter input current (A)     B0AV  battery voltage (mV)
-//     B0AC  battery current (mA, signed)
+//     VD0R  adapter input voltage (V)     ID0R  adapter input current (A)
+//     B0AV  battery voltage (mV)          B0AC  battery current (mA, signed)
+//  PPBR is printed by --smc-diag but NOT used. It is not battery terminal power:
+//  it read ~0.7 W while the battery was charging at ~41 W. Battery power is
+//  always B0AV × B0AC, read together.
 //  On Intel: PSTR is "sp78", PDTR is "sp96", B0AV "ui16", B0AC "si16" (big-endian).
-//  PPBR / VD0R / ID0R may not exist there; the app then derives battery power
-//  from voltage × current and falls back to the adapter's reported voltage.
+//  VD0R / ID0R may not exist there; the app falls back to the adapter's
+//  reported voltage.
 //  Every value is range-checked; anything implausible is ignored and the
 //  IORegistry value is used instead.
 //
@@ -124,7 +126,6 @@ final class SMCReader {
     struct Snapshot {
         var systemPower: Double?     // W
         var adapterPower: Double?    // W
-        var batteryPower: Double?    // W (magnitude)
         var adapterVoltage: Double?  // V
         var adapterCurrent: Double?  // A
         var batteryTemperature: Double?  // °C
@@ -140,7 +141,6 @@ final class SMCReader {
 
         s.systemPower   = readDouble("PSTR").flatMap { plausible($0, 0.05...400) }
         s.adapterPower  = readDouble("PDTR").flatMap { plausible($0, 0.05...400) }
-        s.batteryPower  = readDouble("PPBR").map { abs($0) }.flatMap { plausible($0, 0...300) }
         s.adapterVoltage = readDouble("VD0R").flatMap { plausible($0, 4.5...49) }
         s.adapterCurrent = readDouble("ID0R").flatMap { plausible($0, 0.01...10) }
         // macOS 27 no longer publishes the battery temperature in IORegistry,

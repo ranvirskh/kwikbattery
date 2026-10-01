@@ -54,6 +54,35 @@ final class UpdateChecker: ObservableObject {
         check()
     }
 
+    /// `hasSuffix("github.com")` also matches `evilgithub.com`. Require either
+    /// the exact host or a real subdomain of it.
+    nonisolated static func isTrustedHost(_ host: String?) -> Bool {
+        guard let host = host?.lowercased() else { return false }
+        return ["github.com", "githubusercontent.com"].contains { domain in
+            host == domain || host.hasSuffix("." + domain)
+        }
+    }
+
+    /// GitHub always 302s a release download to objects.githubusercontent.com,
+    /// and URLSession follows redirects silently -- so without this the host
+    /// check above applies only to a URL the bytes never came from. This refuses
+    /// any hop that leaves the trusted hosts.
+    private final class RedirectGuard: NSObject, URLSessionTaskDelegate {
+        func urlSession(_ session: URLSession,
+                        task: URLSessionTask,
+                        willPerformHTTPRedirection response: HTTPURLResponse,
+                        newRequest request: URLRequest,
+                        completionHandler: @escaping (URLRequest?) -> Void) {
+            if request.url?.scheme == "https", UpdateChecker.isTrustedHost(request.url?.host) {
+                completionHandler(request)
+            } else {
+                completionHandler(nil)   // stop here rather than follow it
+            }
+        }
+    }
+
+    private static let redirectGuard = RedirectGuard()
+
     func check() {
         guard case .downloading = state else {
             Task { await performCheck() }
@@ -101,7 +130,7 @@ final class UpdateChecker: ObservableObject {
             guard let urlString = zip?["browser_download_url"] as? String,
                   let assetURL = URL(string: urlString),
                   assetURL.scheme == "https",
-                  assetURL.host?.hasSuffix("github.com") == true || assetURL.host?.hasSuffix("githubusercontent.com") == true else {
+                  Self.isTrustedHost(assetURL.host) else {
                 state = .failed("No download found for \(latest)")
                 return
             }
@@ -135,7 +164,8 @@ final class UpdateChecker: ObservableObject {
 
         Task {
             do {
-                let (temporaryFile, response) = try await URLSession.shared.download(from: url)
+                let (temporaryFile, response) = try await URLSession.shared.download(
+                    from: url, delegate: Self.redirectGuard)
                 guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
                     state = .failed("Download failed")
                     return

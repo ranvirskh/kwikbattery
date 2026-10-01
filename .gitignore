@@ -15,3 +15,7 @@ DerivedData/
 
 # macOS
 .DS_Store
+
+# Raw hardware dumps contain battery / charger serial numbers: never commit these
+power-capture*.txt
+battery-keys.txt

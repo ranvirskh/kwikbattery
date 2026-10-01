@@ -118,8 +118,20 @@ final class HealthHistory: ObservableObject {
         guard let data = try? Data(contentsOf: fileURL) else { return }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        snapshots = ((try? decoder.decode([HealthSnapshot].self, from: data)) ?? [])
-            .sorted { $0.date < $1.date }
+        do {
+            snapshots = try decoder.decode([HealthSnapshot].self, from: data)
+                .sorted { $0.date < $1.date }
+        } catch {
+            // A file that exists but won't decode is NOT the same as no file.
+            // Treating it as empty means the next record() overwrites years of
+            // history with a single row. Keep the original aside instead, so it
+            // can be recovered (or migrated) rather than silently destroyed.
+            let salvage = fileURL.appendingPathExtension("unreadable")
+            try? FileManager.default.removeItem(at: salvage)
+            try? FileManager.default.moveItem(at: fileURL, to: salvage)
+            NSLog("KwikBattery: health history unreadable (\(error)); kept a copy at \(salvage.path)")
+            snapshots = []
+        }
     }
 
     private func save() {

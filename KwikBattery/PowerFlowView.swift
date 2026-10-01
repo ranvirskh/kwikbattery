@@ -37,7 +37,7 @@ struct PowerElectricalView: View {
 
             SankeyFlowView(sourceIcon: info.isPluggedIn ? "powerplug.fill" : nil,
                            sourceTitle: sourceTitle,
-                           sourceSubtitle: info.isPluggedIn ? nil : "\(info.percentage)%",
+                           sourceSubtitle: info.isPluggedIn ? ratedSubtitle : "\(info.percentage)%",
                            sourceTint: info.isPluggedIn ? Color.white : info.levelColor,
                            batteryFraction: Double(info.percentage) / 100.0,
                            destinations: destinations)
@@ -138,12 +138,22 @@ struct PowerElectricalView: View {
 
     // MARK: - Flow data
 
+    /// What the charger is delivering RIGHT NOW. The adapter's rating (86 W) is
+    /// the most it could deliver, not what it is delivering, so showing it as the
+    /// headline number was misleading whenever the Mac drew less than that.
     private var sourceTitle: String {
         if info.isPluggedIn {
+            if let live = info.inputWatts { return String(format: "%.0fW", live) }
             if let rated = info.adapterWatts { return "\(rated)W" }
-            return info.inputWatts.map { String(format: "%.0fW", $0) } ?? "AC"
+            return "AC"
         }
         return "Batt"
+    }
+
+    /// The adapter's rating, shown under the live figure for context.
+    private var ratedSubtitle: String? {
+        guard info.inputWatts != nil, let rated = info.adapterWatts else { return nil }
+        return "of \(rated)W"
     }
 
     private var destinations: [FlowEndpoint] {
@@ -163,7 +173,7 @@ struct PowerElectricalView: View {
         list.append(FlowEndpoint(id: "mac",
                                  watts: Swift.max(macWatts, 0.1),
                                  label: watts(info.macOwnWatts ?? info.systemLoadWatts,
-                                              approximate: !info.isPluggedIn && info.batteryPowerMeasured == nil),
+                                              approximate: !info.isPluggedIn && !info.systemLoadIsMeasured),
                                  icon: "laptopcomputer",
                                  caption: "MacBook",
                                  tint: Color.white,

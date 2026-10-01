@@ -136,7 +136,12 @@ struct HealthHistoryView: View {
         let low = values.min() ?? 0
         let high = values.max() ?? 1
         if metric == .health {
-            return Swift.max(0, (low - 2).rounded(.down))...Swift.min(105, Swift.max(high + 1, low + 2).rounded(.up))
+            // A battery can report over 100% (and a mismatched replacement can
+            // report well over), so clamp the FLOOR too -- otherwise a reading of
+            // 108 gives 106...105 and ClosedRange traps.
+            let upper = Swift.min(105, Swift.max(high + 1, low + 2).rounded(.up))
+            let lower = Swift.max(0, Swift.min((low - 2).rounded(.down), upper - 1))
+            return lower...upper
         }
         return Swift.max(0, low - 5)...(high + 5)
     }

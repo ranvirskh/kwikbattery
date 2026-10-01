@@ -74,6 +74,14 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         } else {
             BatteryMonitor.shared.setLiveUpdates(true)   // 1-second updates while open
             BluetoothDeviceMonitor.shared.refreshIfStale()
+            BluetoothDeviceMonitor.shared.setActive(true)
+            // Sampling is switched off in popoverDidClose, but NSPopover reuses
+            // its content view, so SwiftUI's .onAppear never fires again on a
+            // reopen -- leaving the list frozen on its first reading. Restart it
+            // here, honouring whether the user has the section collapsed.
+            if UserDefaults.standard.object(forKey: "panel.energyExpanded") as? Bool ?? true {
+                AppEnergyMonitor.shared.setActive(true)
+            }
             AnimationBudget.shared.setActive(true)
             UpdateChecker.shared.checkIfDue()
             NSApp.activate()
@@ -86,6 +94,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         BatteryMonitor.shared.setLiveUpdates(false)
         AppEnergyMonitor.shared.setActive(false)
         AnimationBudget.shared.setActive(false)
+        // Device scanning is the app's most expensive recurring work, and the
+        // list is only visible while the panel is open.
+        BluetoothDeviceMonitor.shared.setActive(false)
     }
 
     // MARK: - Icon

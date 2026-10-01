@@ -66,7 +66,6 @@ struct BatteryInfo: Equatable {
     var systemVoltageIn: Double?  // volts at the Mac's power input
     var systemCurrentIn: Double?  // amps at the Mac's power input
     var systemLoad: Double?       // watts the whole system consumes (incl. USB output)
-    var batteryPowerMeasured: Double? // magnitude of battery power from telemetry, watts
 
     // Adapter's negotiated USB-C PD contract
     var adapterVoltage: Double?   // volts
@@ -88,25 +87,35 @@ struct BatteryInfo: Equatable {
         return Double(max) / Double(design) * 100.0
     }
 
-    /// Instantaneous battery power in watts (V × A). Positive while charging,
-    /// negative while discharging.
+    /// Power at the battery's terminals in watts: voltage × current, signed
+    /// (+ charging, − discharging). Both factors come from the same instant
+    /// (see `applyLiveBattery`).
+    ///
+    /// This is deliberately NOT taken from a "battery power" sensor. The SMC's
+    /// PPBR key reads ~0.7 W while the battery is charging at 40+ W (it measures
+    /// what the system draws FROM the battery, which is ~0 on the adapter), and
+    /// the two registry fields called BatteryPower disagree with each other while
+    /// discharging. V × I is the one quantity that is always the power actually
+    /// flowing through the battery, and it balances: adapter in = system load +
+    /// battery power.
     var batteryWatts: Double? {
-        if let measured = batteryPowerMeasured {
-            // Telemetry gives the magnitude; the sign comes from the current direction.
-            let charging: Bool
-            if let a = amperage { charging = a >= 0 } else { charging = isCharging }
-            return charging ? measured : -measured
-        }
-        guard let v = voltage, let a = amperage else { return nil }
+        guard let v = voltage, let a = amperage, v.isFinite, a.isFinite else { return nil }
         return v * a
     }
+
+    /// True when `systemLoad` came from a sensor, false when `systemLoadWatts`
+    /// has to be derived from the battery's V × I (so the UI can mark it "~").
+    var systemLoadIsMeasured: Bool { systemLoad != nil }
 
     /// Watts being drawn by the Mac (CPU, display, …), from telemetry or derived.
     var systemLoadWatts: Double? {
         if let systemLoad { return systemLoad }
         guard let battery = batteryWatts else { return nil }
         if !isPluggedIn { return abs(battery) }
-        if let input = systemPowerIn { return Swift.max(0, input - Swift.max(0, battery)) }
+        // `battery` is signed: negative while discharging. Clamping it at 0
+        // deleted the battery's contribution exactly when the adapter can't keep
+        // up, under-reporting system load by the discharge wattage.
+        if let input = systemPowerIn { return Swift.max(0, input - battery) }
         return nil
     }
 
@@ -114,7 +123,7 @@ struct BatteryInfo: Equatable {
     var inputWatts: Double? {
         guard isPluggedIn else { return nil }
         if let systemPowerIn { return systemPowerIn }
-        if let load = systemLoad, let battery = batteryWatts { return load + Swift.max(0, battery) }
+        if let load = systemLoad, let battery = batteryWatts { return Swift.max(0, load + battery) }
         return nil
     }
 
@@ -134,16 +143,41 @@ struct BatteryInfo: Equatable {
         return Swift.max(0, load - accessoryWatts)
     }
 
+    /// Folds one live SMC voltage/current reading into this snapshot.
+    ///
+    /// Voltage and current are applied TOGETHER or not at all. Under load the
+    /// pack voltage moves with the current (a charging Mac was seen going
+    /// 12.06 V → 12.59 V in four seconds as the charge rate ramped), so a live
+    /// voltage multiplied by a registry current that is 10–60 s old yields a power
+    /// that was never true at any instant. Without a matched live pair, the
+    /// registry's own pair is kept.
+    ///
+    /// The live current is also the ground truth for direction, in both
+    /// directions: the IsCharging flags lag, and a stale "charging" flag with a
+    /// negative current would otherwise read "Charging at -14 W".
+    mutating func applyLiveBattery(volts: Double?, amps: Double?) {
+        guard let volts, let amps, volts.isFinite, amps.isFinite else { return }
+        voltage = volts
+        amperage = amps
+        if isPluggedIn {
+            if amps > 0.05 { isCharging = true }
+            else if amps < -0.05 { isCharging = false }
+        }
+    }
+
     /// Plain-English explanation for "plugged in but not charging".
     var holdReason: String {
         if isFullyCharged || percentage >= 98 {
             return "Battery is full"
         }
-        if percentage >= 75 {
-            return "macOS is holding the charge at \(percentage)% (Optimized Charging or Charge Limit)"
-        }
+        // Check the reported reason BEFORE the percentage band: a charge paused
+        // at 80% because the pack is hot is not the same as a charge limit, and
+        // blaming the setting sends the user to the wrong place.
         if notChargingReason != 0 {
             return "macOS paused charging (e.g. temperature or adapter)"
+        }
+        if percentage >= 75 {
+            return "macOS is holding the charge at \(percentage)% (Optimized Charging or Charge Limit)"
         }
         return "Charger connected, battery not charging"
     }

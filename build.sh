@@ -8,6 +8,7 @@
 #     bash build.sh --install   build, copy to ~/Applications and launch it
 #     bash build.sh --watch     keep running; rebuild + relaunch whenever the code changes
 #     bash build.sh --release   universal (Apple silicon + Intel) build, zipped in ./release/
+#     bash build.sh --test      run the power-calculation tests (no app is built)
 #
 # Optional, for --release with an Apple Developer account:
 #     SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
@@ -108,6 +109,27 @@ if [[ "$SDK_MAJOR" =~ ^[0-9]+$ ]] && (( SDK_MAJOR >= 27 )) \
   echo "Install Xcode, open it once, then point the toolchain at it:"
   echo "    sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"
   exit 1
+fi
+
+# --test: build and run the power-calculation tests. No Xcode test target is
+# needed: BatteryInfo.swift only imports Foundation, so it compiles on its own
+# alongside Tests/PowerTests.swift into a small program that exits non-zero if
+# any check fails.
+if [[ "$MODE" == "--test" ]]; then
+  TEST_OUT="${TMPDIR:-/tmp}/kwikbattery-tests"
+  rm -rf "$TEST_OUT"
+  mkdir -p "$TEST_OUT"
+  echo "==> Compiling power tests"
+  xcrun swiftc \
+    -parse-as-library \
+    -swift-version 5 \
+    -target "$(uname -m)-apple-macos$MIN_MACOS" \
+    -sdk "$SDK" \
+    "$SRC/BatteryInfo.swift" Tests/PowerTests.swift \
+    -o "$TEST_OUT/power-tests"
+  echo "==> Running"
+  "$TEST_OUT/power-tests"
+  exit $?
 fi
 
 # Build in a temp folder: iCloud-synced folders like Documents attach

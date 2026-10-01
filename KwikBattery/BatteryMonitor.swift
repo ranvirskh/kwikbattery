@@ -128,17 +128,11 @@ final class BatteryMonitor: ObservableObject {
         guard smc.isAvailable else { return }
         let live = smc.snapshot(referenceAmps: info.amperage, referenceVolts: info.voltage)
 
-        if let v = live.batteryVoltage { info.voltage = v }
-        if let a = live.batteryCurrent {
-            info.amperage = a
-            if info.isPluggedIn && a > 0.05 { info.isCharging = true }
-        }
-        if let p = live.batteryPower {
-            info.batteryPowerMeasured = p
-        } else if live.batteryVoltage != nil || live.batteryCurrent != nil {
-            // Intel: no battery-power key, so let batteryWatts use live V × A.
-            info.batteryPowerMeasured = nil
-        }
+        // Battery power is voltage × current from ONE matched live pair, worked
+        // out by BatteryInfo. The SMC also has PPBR, but it is not the power at
+        // the battery's terminals (it read 0.7 W while the battery was taking
+        // 41 W), so it is deliberately not used here.
+        info.applyLiveBattery(volts: live.batteryVoltage, amps: live.batteryCurrent)
         if let p = live.systemPower { info.systemLoad = p }
         if info.temperatureCelsius == nil, let c = live.batteryTemperature {
             info.temperatureCelsius = c
@@ -311,7 +305,13 @@ final class BatteryMonitor: ObservableObject {
 
         // --- Capacities (mAh) -----------------------------------------------
         let batteryData = sb?["BatteryData"] as? [String: Any]
-        info.designCapacity = int(sb?["DesignCapacity"]) ?? int(batteryData?["DesignCapacity"])
+        // `int()` returns 0 (not nil) for a present-but-zero key, so `??` would
+        // never reach the nested BatteryData copy. Require a positive value.
+        if let design = int(sb?["DesignCapacity"]), design > 0 {
+            info.designCapacity = design
+        } else if let design = int(batteryData?["DesignCapacity"]), design > 0 {
+            info.designCapacity = design
+        }
 
         // macOS 27 removed the top-level AppleRawMaxCapacity / NominalChargeCapacity
         // and moved the real mAh figures inside "BatteryData", so check there too.
@@ -335,7 +335,11 @@ final class BatteryMonitor: ObservableObject {
             info.currentCapacity = cur
         }
 
-        info.cycleCount = int(sb?["CycleCount"]) ?? int(batteryData?["CycleCount"])
+        if let cycles = int(sb?["CycleCount"]), cycles > 0 {
+            info.cycleCount = cycles
+        } else if let cycles = int(batteryData?["CycleCount"]), cycles > 0 {
+            info.cycleCount = cycles
+        }
 
         // --- Time estimates -------------------------------------------------
         // IOPS returns -1 while macOS is still calculating.
@@ -404,7 +408,9 @@ final class BatteryMonitor: ObservableObject {
         //   SystemCurrentIn  current at the power input
         //   SystemLoad       power consumed by the whole system, including
         //                    power sent out to USB accessories
-        //   BatteryPower     power going into / out of the battery
+        //   BatteryPower     NOT USED. While charging it equals V × I, but while
+        //                    discharging it equals -SystemLoad, a different
+        //                    quantity, so it can't be trusted as battery power.
         // Intel Macs don't have it; the UI then falls back to V × A estimates.
         if let telemetry = sb?["PowerTelemetryData"] as? [String: Any] {
             if info.isPluggedIn, let mw = int(telemetry["SystemPowerIn"]), mw > 0 {
@@ -418,9 +424,6 @@ final class BatteryMonitor: ObservableObject {
             }
             if let mw = int(telemetry["SystemLoad"]), mw > 0 {
                 info.systemLoad = Double(mw) / 1000.0
-            }
-            if let mw = int(telemetry["BatteryPower"]), mw > 0, mw < 250_000 {
-                info.batteryPowerMeasured = Double(mw) / 1000.0
             }
         }
 

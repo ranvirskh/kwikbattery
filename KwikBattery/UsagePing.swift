@@ -21,7 +21,7 @@ import Foundation
 
 enum UsagePing {
     /// The counter host (a GoatCounter site). Empty = not configured = nothing is ever sent.
-    static let counterHost = ""
+    static let counterHost = "kiwkbattery.goatcounter.com"
 
     private static let lastPingKey = "usage.lastPing"
     private static let noticeShownKey = "usage.noticeShown"

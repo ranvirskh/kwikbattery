@@ -20,6 +20,7 @@
 //
 //  Command line (all but --daemon work without a running daemon)
 //      kwikbatteryd --probe     read-only: list which charge-control keys this Mac has
+//      kwikbatteryd --keys CH B0  read-only: list every SMC key starting with those prefixes
 //      kwikbatteryd --restore   force normal charging (adapter on, charging allowed)
 //      kwikbatteryd --daemon    run the helper (what launchd does)
 //
@@ -68,6 +69,7 @@ final class SMC {
     private static let cmdReadBytes: UInt8 = 5
     private static let cmdWriteBytes: UInt8 = 6
     private static let cmdKeyInfo: UInt8 = 9
+    private static let cmdKeyFromIndex: UInt8 = 8
 
     private var connection: io_connect_t = 0
     private(set) var isOpen = false
@@ -117,6 +119,29 @@ final class SMC {
         let all: [UInt8] = withUnsafeBytes(of: out.bytes) { Array($0) }
         return Array(all.prefix(Int(ki.dataSize)))
     }
+
+    // MARK: Read-only key discovery (used by --keys)
+
+    private static func string(from code: UInt32) -> String {
+        let b = [UInt8((code >> 24) & 0xFF), UInt8((code >> 16) & 0xFF), UInt8((code >> 8) & 0xFF), UInt8(code & 0xFF)]
+        return String(bytes: b, encoding: .ascii) ?? "????"
+    }
+
+    func keyCount() -> Int? {
+        guard let b = read("#KEY"), b.count == 4 else { return nil }
+        return Int(b[0]) << 24 | Int(b[1]) << 16 | Int(b[2]) << 8 | Int(b[3])
+    }
+
+    func keyName(at index: Int) -> String? {
+        guard isOpen else { return nil }
+        var req = KeyData()
+        req.data8 = Self.cmdKeyFromIndex
+        req.data32 = UInt32(index)
+        guard let out = call(&req) else { return nil }
+        return Self.string(from: out.key)
+    }
+
+    func typeName(of key: String) -> String? { info(key).map { Self.string(from: $0.dataType) } }
 
     /// Writes exactly the key's declared number of bytes. Needs root.
     @discardableResult
@@ -464,10 +489,26 @@ func runProbe() {
     print("Running as root: \(geteuid() == 0)")
 }
 
+func runKeys(prefixes: [String]) {
+    let smc = SMC()
+    guard let count = smc.keyCount() else { print("Couldn't read the SMC key count."); return }
+    print("# \(count) SMC keys; showing prefixes: \(prefixes.isEmpty ? "all" : prefixes.joined(separator: " "))")
+    for i in 0..<count {
+        guard let name = smc.keyName(at: i) else { continue }
+        if !prefixes.isEmpty && !prefixes.contains(where: { name.hasPrefix($0) }) { continue }
+        let type = smc.typeName(of: name) ?? "?"
+        let bytes = smc.read(name)
+        let hex = bytes.map { $0.prefix(16).map { String(format: "%02x", $0) }.joined(separator: " ") } ?? "(unreadable)"
+        print("\(name)  [\(type)]  size \(bytes?.count ?? 0)  \(hex)")
+    }
+}
+
 let mode = CommandLine.arguments.dropFirst().first ?? "--daemon"
 switch mode {
 case "--probe":
     runProbe()
+case "--keys":
+    runKeys(prefixes: Array(CommandLine.arguments.dropFirst(2)))
 case "--restore":
     guard geteuid() == 0 else { print("Run with sudo."); exit(1) }
     let smc = SMC()
@@ -503,6 +544,6 @@ case "--daemon":
 
     dispatchMain()
 default:
-    print("usage: kwikbatteryd [--probe | --restore | --daemon]")
+    print("usage: kwikbatteryd [--probe | --keys [PREFIX…] | --restore | --daemon]")
     exit(2)
 }

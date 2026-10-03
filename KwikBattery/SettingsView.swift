@@ -18,6 +18,7 @@ struct SettingsView: View {
     @AppStorage(SettingsKey.useFahrenheit) private var useFahrenheit = SettingsDefault.useFahrenheit
     @AppStorage(SettingsKey.lowPowerMode) private var lowPowerMode = SettingsDefault.lowPowerMode
     @AppStorage(SettingsKey.showLowPowerToggle) private var showLowPowerToggle = SettingsDefault.showLowPowerToggle
+    @AppStorage(SettingsKey.shareUsageCount) private var shareUsageCount = SettingsDefault.shareUsageCount
 
     // Notifications
     @AppStorage(SettingsKey.notifyFullCharge) private var notifyFullCharge = SettingsDefault.notifyFullCharge
@@ -83,6 +84,11 @@ struct SettingsView: View {
                 Text("Celsius (°C)").tag(false)
                 Text("Fahrenheit (°F)").tag(true)
             }
+
+            Toggle("Share an anonymous daily usage count", isOn: $shareUsageCount)
+            Text("Sends one request a day containing only the app version, so the developer can see roughly how many people use KwikBattery. No battery data, device details or personal information. Off = nothing is sent.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -144,7 +150,7 @@ struct SettingsView: View {
                 Text("Version \(appVersion)")
                     .foregroundStyle(.secondary)
             }
-            Text("Every feature is free and unlocked. No accounts, no tracking, no network access.")
+            Text("Every feature is free and unlocked. No accounts and no personal data. The only network use is the daily update check and an optional anonymous usage count (Settings → General).")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             HStack {

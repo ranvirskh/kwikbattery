@@ -76,6 +76,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         monitor.start()
         UpdateChecker.shared.checkIfDue()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            UsagePing.start()
+        }
         devices.start()
     }
 

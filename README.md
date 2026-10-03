@@ -1,6 +1,6 @@
 # KwikBattery
 
-A free, native macOS menu bar app for your battery and power. Every feature is included: no paywalls, subscriptions, accounts or tracking.
+A free, native macOS menu bar app for your battery and power. Every feature is included: no paywalls, subscriptions or accounts, and no tracking of you.
 
 ## Features
 
@@ -133,7 +133,11 @@ If you do have Xcode, you can also open `KwikBattery.xcodeproj` and press ⌘R.
 - **Battery data:** `IOPSCopyPowerSourcesInfo` and the `AppleSmartBattery` entry in the IORegistry. The code in `BatteryMonitor.swift` has detailed comments.
 - **Live power (Apple silicon):** `PowerTelemetryData` for system input, system load and battery power. `PowerOutDetails` gives the power sent out through each USB-C port.
 - **Bluetooth levels:** `system_profiler SPBluetoothDataType` and HID battery properties.
-- **App Sandbox:** turned off so the app can run the tools above. It needs no special entitlements and makes no network requests.
+- **App Sandbox:** turned off so the app can run the tools above. It needs no special entitlements and makes no network requests apart from the update check and the optional usage count described below.
+
+## Privacy: anonymous usage count
+
+So the developer can see roughly how many people use KwikBattery, the app sends **one anonymous request per day** to a counter. It contains only the app version (for example `/launch/1.7.1`): no install ID, no account, no battery or device data, no cookies. It is **on by default**, you're told about it once when it first applies, and you can switch it off any time in **Settings → General → Share an anonymous daily usage count**. When it's off, nothing is sent. The code is in `UsagePing.swift`.
 
 ## License
 

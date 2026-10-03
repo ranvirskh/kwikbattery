@@ -59,10 +59,14 @@ final class AppEnergyMonitor: ObservableObject {
     }
 
     func icon(for app: AppEnergyUsage) -> NSImage {
-        let key = app.appPath ?? "__generic__"
+        icon(forAppPath: app.appPath)
+    }
+
+    func icon(forAppPath appPath: String?) -> NSImage {
+        let key = appPath ?? "__generic__"
         if let cached = iconCache[key] { return cached }
         let image: NSImage
-        if let path = app.appPath {
+        if let path = appPath {
             image = NSWorkspace.shared.icon(forFile: path)
         } else {
             image = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil) ?? NSImage()
@@ -113,7 +117,9 @@ final class AppEnergyMonitor: ObservableObject {
         "FaceTimeAgent": "com.apple.FaceTime",
     ]
 
-    nonisolated static func loadUsage(runningApps: [String: HostApp]) async -> [AppEnergyUsage] {
+    /// `limit`: how many apps to return. The live panel shows 5; the energy
+    /// history samples 12 so smaller consumers still add up over a day.
+    nonisolated static func loadUsage(runningApps: [String: HostApp], limit: Int = 5) async -> [AppEnergyUsage] {
         guard let output = runTop() else { return [] }
         let processes = parseTop(output)
 
@@ -160,7 +166,7 @@ final class AppEnergyMonitor: ObservableObject {
             }
             .filter { $0.percent >= 0.3 }
             .sorted { $0.impact > $1.impact }
-            .prefix(5)
+            .prefix(Swift.max(0, limit))
             .map { $0 }
     }
 

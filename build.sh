@@ -8,7 +8,7 @@
 #     bash build.sh --install   build, copy to ~/Applications and launch it
 #     bash build.sh --watch     keep running; rebuild + relaunch whenever the code changes
 #     bash build.sh --release   universal (Apple silicon + Intel) build, zipped in ./release/
-#     bash build.sh --test      run the power-calculation tests (no app is built)
+#     bash build.sh --test      run the power and insights tests (no app is built)
 #
 # Optional, for --release with an Apple Developer account:
 #     SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
@@ -24,7 +24,7 @@ MODE="${1:-}"
 
 APP_NAME="KwikBattery"
 BUNDLE_ID="com.kwikbattery.KwikBattery"
-VERSION="1.7.1"
+VERSION="1.8.0"
 BUILD_NUMBER="1"
 MIN_MACOS="14.0"
 
@@ -127,9 +127,20 @@ if [[ "$MODE" == "--test" ]]; then
     -sdk "$SDK" \
     "$SRC/BatteryInfo.swift" Tests/PowerTests.swift \
     -o "$TEST_OUT/power-tests"
+  echo "==> Compiling insights tests"
+  xcrun swiftc \
+    -parse-as-library \
+    -swift-version 5 \
+    -target "$(uname -m)-apple-macos$MIN_MACOS" \
+    -sdk "$SDK" \
+    "$SRC/BatteryInfo.swift" "$SRC/BatteryInsights.swift" "$SRC/EnergyLedger.swift" \
+    Tests/InsightsTests.swift \
+    -o "$TEST_OUT/insights-tests"
   echo "==> Running"
-  "$TEST_OUT/power-tests"
-  exit $?
+  TEST_STATUS=0
+  "$TEST_OUT/power-tests" || TEST_STATUS=1
+  "$TEST_OUT/insights-tests" || TEST_STATUS=1
+  exit $TEST_STATUS
 fi
 
 # Build in a temp folder: iCloud-synced folders like Documents attach

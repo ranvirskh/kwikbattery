@@ -249,6 +249,8 @@ struct HelperStatus: Codable {
     /// The SMC keys this Mac was found to support (nil = not supported).
     var chargeKey: String?
     var adapterKey: String?
+    /// True when this Mac has no "inhibit charging" key and the limit is held by cycling the adapter.
+    var emulatedHold: Bool?
     var error: String?
     var policy = ChargePolicyConfig()
 }

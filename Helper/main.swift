@@ -250,7 +250,7 @@ final class Controller {
         status.chargeKey = chargeSwitch?.label
         status.adapterKey = adapterSwitch?.label
         if !smc.isOpen { broken = "Couldn't open the SMC." }
-        else if chargeSwitch == nil { broken = "This Mac doesn't expose a known charge-control key." }
+        else if chargeSwitch == nil && adapterSwitch == nil { broken = "This Mac doesn't expose a known charge-control key." }
         loadPolicy()
         restoreNormal()           // always start from a known state
         tick()
@@ -297,8 +297,27 @@ final class Controller {
         tick()
     }
 
-    private func apply(_ mode: ChargeMode) {
-        guard broken == nil, let charge = chargeSwitch else { return }
+    private func apply(_ mode: ChargeMode, lidClosed: Bool) {
+        guard broken == nil else { return }
+
+        guard let charge = chargeSwitch else {
+            // No "inhibit charging" key on this Mac (macOS 27 on M1 Max has none).
+            // Emulate holding the limit by cycling the adapter: while the policy says
+            // hold or discharge, the Mac runs from the battery; once the battery has
+            // fallen `sailingRange` below the limit the policy says normal and it
+            // charges again. Never with the lid closed unless the user allowed that,
+            // because the Mac would sleep on a draining battery.
+            guard let a = adapterSwitch else { return }
+            let lidBlocks = lidClosed && !engine.config.sanitized.dischargeWithLidClosed
+            let wantOff = mode != .normal && !sleeping && !lidBlocks
+            if smc.isOn(a) != wantOff {
+                if !smc.set(a, on: wantOff) { fail("The SMC wouldn't accept the adapter switch (\(a.label))."); return }
+            }
+            inhibitWanted = false
+            adapterOffWanted = wantOff
+            return
+        }
+
         var wantInhibit = mode != .normal
         var wantAdapterOff = mode == .discharge
         if wantAdapterOff && adapterSwitch == nil { wantAdapterOff = false; wantInhibit = true }
@@ -347,7 +366,7 @@ final class Controller {
         let pluggedIn = reading.onAC || adapterOffWanted
         let decision = engine.decide(PolicyInput(percent: reading.percent, pluggedIn: pluggedIn,
                                                  lidClosed: lid, now: Date()))
-        apply(decision.mode)
+        apply(decision.mode, lidClosed: lid)
 
         status.percent = reading.percent
         status.pluggedIn = pluggedIn
@@ -357,6 +376,7 @@ final class Controller {
         status.effectiveLimit = decision.effectiveLimit
         status.topUpActive = decision.topUpActive
         status.error = broken
+        status.emulatedHold = (chargeSwitch == nil && adapterSwitch != nil) ? true : nil
         status.policy = engine.config
     }
 
@@ -368,7 +388,7 @@ final class Controller {
             if let p = req.policy {
                 engine.config = p.sanitized
                 savePolicy()
-                broken = (smc.isOpen && chargeSwitch != nil) ? nil : broken   // a new policy retries
+                broken = (smc.isOpen && (chargeSwitch != nil || adapterSwitch != nil)) ? nil : broken   // a new policy retries
                 if !engine.config.enabled { restoreNormal() }
             }
         case "topUpNow":
@@ -489,6 +509,44 @@ func runProbe() {
     print("Running as root: \(geteuid() == 0)")
 }
 
+var testSMC: SMC?
+var testSwitch: SMCSwitch?
+
+/// Interactive hardware check: switches the adapter off for ~8 s while plugged in, reports
+/// what macOS saw, and always switches it back on. Run with sudo, on the charger.
+func runAdapterTest() {
+    guard geteuid() == 0 else { print("Run with sudo."); exit(1) }
+    let smc = SMC()
+    guard let a = Candidates.firstAvailable(Candidates.adapterOff, in: smc) else {
+        print("No adapter switch on this Mac."); return
+    }
+    testSMC = smc; testSwitch = a
+    let restore: @convention(c) (Int32) -> Void = { _ in
+        if let s = testSMC, let sw = testSwitch { _ = s.set(sw, on: false) }
+        print("\nInterrupted: adapter switched back on.")
+        exit(1)
+    }
+    signal(SIGINT, restore); signal(SIGTERM, restore)
+
+    func line(_ label: String) {
+        let b = Sensors.battery()
+        print("\(label): battery \(b.map { "\($0.percent)%" } ?? "?"), on AC: \(b.map { String($0.onAC) } ?? "?"), \(a.label) = \(smc.isOn(a).map { $0 ? "ON (adapter off)" : "off (normal)" } ?? "?")")
+    }
+    line("Before")
+    guard Sensors.battery()?.onAC == true else {
+        print("Plug in the charger first, then run this again."); return
+    }
+    print("Switching the adapter off for 8 seconds…")
+    let ok = smc.set(a, on: true)
+    print("write accepted and held: \(ok)")
+    for _ in 1...4 { sleep(2); line("During") }
+    let back = smc.set(a, on: false)
+    print("switched back on, held: \(back)")
+    sleep(3)
+    line("After")
+    print(ok && back ? "RESULT: the adapter switch works on this Mac." : "RESULT: the switch did not behave; nothing was left changed.")
+}
+
 func runKeys(prefixes: [String]) {
     let smc = SMC()
     guard let count = smc.keyCount() else { print("Couldn't read the SMC key count."); return }
@@ -507,6 +565,8 @@ let mode = CommandLine.arguments.dropFirst().first ?? "--daemon"
 switch mode {
 case "--probe":
     runProbe()
+case "--test-adapter":
+    runAdapterTest()
 case "--keys":
     runKeys(prefixes: Array(CommandLine.arguments.dropFirst(2)))
 case "--restore":
@@ -544,6 +604,6 @@ case "--daemon":
 
     dispatchMain()
 default:
-    print("usage: kwikbatteryd [--probe | --keys [PREFIX…] | --restore | --daemon]")
+    print("usage: kwikbatteryd [--probe | --keys [PREFIX…] | --test-adapter | --restore | --daemon]")
     exit(2)
 }

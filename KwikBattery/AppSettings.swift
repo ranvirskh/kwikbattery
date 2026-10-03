@@ -24,6 +24,7 @@ enum SettingsKey {
     static let lowPowerMode         = "lowPowerMode"
     static let showLowPowerToggle   = "showLowPowerToggle"       // in the dropdown
     static let lastHealthAlertDate  = "lastHealthAlertDate"      // internal
+    static let shareUsageCount      = "shareUsageCount"          // anonymous daily count
 }
 
 enum SettingsDefault {
@@ -38,6 +39,7 @@ enum SettingsDefault {
     static let slowChargingWatts    = 10.0
     static let lowPowerMode         = false
     static let showLowPowerToggle   = true
+    static let shareUsageCount      = true
 }
 
 enum AppSettings {
@@ -58,6 +60,7 @@ enum AppSettings {
             SettingsKey.slowChargingWatts:   SettingsDefault.slowChargingWatts,
             SettingsKey.lowPowerMode:        SettingsDefault.lowPowerMode,
             SettingsKey.showLowPowerToggle:  SettingsDefault.showLowPowerToggle,
+            SettingsKey.shareUsageCount:     SettingsDefault.shareUsageCount,
         ])
     }
 
@@ -72,6 +75,11 @@ enum AppSettings {
     static var slowChargingWatts: Double { defaults.double(forKey: SettingsKey.slowChargingWatts) }
     static var lowPowerMode: Bool        { defaults.bool(forKey: SettingsKey.lowPowerMode) }
     static var showLowPowerToggle: Bool  { defaults.bool(forKey: SettingsKey.showLowPowerToggle) }
+    static var shareUsageCount: Bool     { defaults.bool(forKey: SettingsKey.shareUsageCount) }
+
+    static func setShareUsageCount(_ enabled: Bool) {
+        defaults.set(enabled, forKey: SettingsKey.shareUsageCount)
+    }
 
     static func setLowPowerMode(_ enabled: Bool) {
         defaults.set(enabled, forKey: SettingsKey.lowPowerMode)

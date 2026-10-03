@@ -66,9 +66,12 @@ struct ChargeControlSection: View {
             if let error = s.error {
                 Text(error).font(.caption).foregroundStyle(.orange)
             }
-            if s.chargeKey == nil {
-                Text("This Mac doesn't expose a charge-control switch, so a limit can't be applied. Run  kwikbatteryd --probe  and open an issue with the output.")
+            if s.chargeKey == nil && s.adapterKey == nil {
+                Text("This Mac doesn't expose a charge-control switch, so charge control isn't available here. Run  kwikbatteryd --keys CH  and open an issue with the output.")
                     .font(.caption).foregroundStyle(.orange)
+            } else if s.chargeKey == nil {
+                Text("This Mac has no \"stop charging\" switch, so the limit is held by letting it run on the battery from the limit down to \(control.config.sailingRange)% below, then charging again. Wear is still reduced; the battery just cycles in that small band.")
+                    .font(.caption).foregroundStyle(.secondary)
             } else if s.adapterKey == nil {
                 Text("This Mac can hold its charge but has no adapter switch, so automatic discharge isn't available.")
                     .font(.caption).foregroundStyle(.orange)

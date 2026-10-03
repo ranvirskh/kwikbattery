@@ -81,7 +81,10 @@ enum UsagePing {
         config.httpShouldSetCookies = false
         config.urlCache = nil
         var request = URLRequest(url: url)
-        request.setValue("KwikBattery/\(version)", forHTTPHeaderField: "User-Agent")
+        // GoatCounter silently drops requests whose User-Agent doesn't look like a browser,
+        // so identify as a browser-style agent that still carries the app name and version.
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) KwikBattery/\(version)",
+                         forHTTPHeaderField: "User-Agent")
 
         URLSession(configuration: config).dataTask(with: request) { _, response, _ in
             // Only count the day as done if the counter actually answered.

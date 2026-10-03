@@ -178,20 +178,27 @@ else
   compile "$ARCH" "$APP/Contents/MacOS/$APP_NAME"
 fi
 
-echo "==> Compiling charge-control helper"
+echo "==> Compiling charge-control helper (optional)"
+# The helper is an optional extra. If it fails to compile, the app is still built
+# without it, and Settings → Charge control simply won't offer to install it.
 helper_arch() {  # $1 = arch, $2 = output
   xcrun swiftc -O -swift-version 5 -target "$1-apple-macos$MIN_MACOS" -sdk "$SDK" \
     Helper/main.swift "$SRC/ChargePolicy.swift" -o "$2"
 }
+HELPER_OK=1
 if [[ "$MODE" == "--release" ]]; then
-  helper_arch arm64 "$OUT/kwikbatteryd-arm64"
-  helper_arch x86_64 "$OUT/kwikbatteryd-x86_64"
-  lipo -create "$OUT/kwikbatteryd-arm64" "$OUT/kwikbatteryd-x86_64" -output "$APP/Contents/Resources/kwikbatteryd"
+  { helper_arch arm64 "$OUT/kwikbatteryd-arm64" && helper_arch x86_64 "$OUT/kwikbatteryd-x86_64" \
+    && lipo -create "$OUT/kwikbatteryd-arm64" "$OUT/kwikbatteryd-x86_64" -output "$APP/Contents/Resources/kwikbatteryd"; } || HELPER_OK=0
 else
-  helper_arch "$(uname -m)" "$APP/Contents/Resources/kwikbatteryd"
+  helper_arch "$(uname -m)" "$APP/Contents/Resources/kwikbatteryd" || HELPER_OK=0
 fi
-codesign --force --sign - "$APP/Contents/Resources/kwikbatteryd"
-cp install-helper.sh uninstall-helper.sh "$APP/Contents/Resources/"
+if [[ "$HELPER_OK" == "1" ]]; then
+  codesign --force --sign - "$APP/Contents/Resources/kwikbatteryd"
+  cp install-helper.sh uninstall-helper.sh "$APP/Contents/Resources/"
+else
+  echo "⚠️  The charge-control helper didn't compile; building KwikBattery without it."
+  rm -f "$APP/Contents/Resources/kwikbatteryd"
+fi
 
 echo "==> Writing Info.plist"
 # The Xcode Info.plist uses $(BUILD_SETTING) placeholders; fill them in here.

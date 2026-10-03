@@ -36,6 +36,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             generalSection
+            ChargeControlSection()
             notificationsSection
             aboutSection
         }

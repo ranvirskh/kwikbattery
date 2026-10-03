@@ -97,6 +97,21 @@ is the likely reason your phone is missing. Your iPhone must also be on the same
 Wi-Fi network, unlocked for the first read, and paired with this Mac — plug it in
 once and tap **Trust**. In Finder, tick "Show this iPhone when on Wi-Fi".
 
+## Charge control (optional)
+
+Settings → **Charge control** adds four things:
+
+- **Charge limit.** Hold the battery at, say, 80% while plugged in; charging resumes a few points below the limit.
+- **Automatic discharge.** If the battery is above the limit (you charged to 100% for a trip), run on the battery until it falls to the limit.
+- **Clamshell discharge.** Optionally keep discharging with the lid closed, for use with an external display. Without a display the Mac sleeps when the lid closes, so KwikBattery switches the adapter back on *before* sleep and never lets a Mac sleep on a draining battery.
+- **Top-up scheduling.** "Top up now", or schedules like *weekdays 07:00 → 100%*: charge past the limit at that time, then return to the limit.
+
+Only an administrator can tell the battery to stop charging, so this uses a small root helper (`kwikbatteryd`, a LaunchDaemon) installed on request: press **Install Helper…** in Settings, or run `sudo bash install-helper.sh`. The app itself never writes to the SMC and everything else works without the helper. Remove it any time with **Remove Helper…** or `sudo bash uninstall-helper.sh`.
+
+Safeguards: the helper restores normal charging when it starts, stops, receives SIGTERM, or before every sleep; every SMC write is read back and, if the value doesn't stick, charge control pauses itself and says why; keys that don't exist on your Mac are never touched; settings are clamped to safe ranges. To check what your Mac supports without changing anything, run `/Library/PrivilegedHelperTools/kwikbatteryd --probe` (or `bash build.sh` and look at the SMC check). If anything ever looks wrong: `sudo /Library/PrivilegedHelperTools/kwikbatteryd --restore`.
+
+The SMC switches used are `CHTE` / `CH0B`+`CH0C` (inhibit charging) and `CHIE` / `CH0I` (adapter off). Apple doesn't document them and they have changed between macOS releases, so please report what `--probe` prints on your Mac.
+
 ## Help test
 
 If you have an **Intel Mac** or an older Apple silicon model, please follow [TESTING.md](TESTING.md) and send the report.
@@ -133,7 +148,7 @@ If you do have Xcode, you can also open `KwikBattery.xcodeproj` and press ⌘R.
 - **Battery data:** `IOPSCopyPowerSourcesInfo` and the `AppleSmartBattery` entry in the IORegistry. The code in `BatteryMonitor.swift` has detailed comments.
 - **Live power (Apple silicon):** `PowerTelemetryData` for system input, system load and battery power. `PowerOutDetails` gives the power sent out through each USB-C port.
 - **Bluetooth levels:** `system_profiler SPBluetoothDataType` and HID battery properties.
-- **App Sandbox:** turned off so the app can run the tools above. It needs no special entitlements and makes no network requests.
+- **App Sandbox:** turned off so the app can run the tools above. It needs no special entitlements and makes no network requests (the helper talks to the app over a local Unix socket only).
 
 ## License
 

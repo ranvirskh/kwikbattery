@@ -295,7 +295,9 @@ final class SMCReader {
         #else
         lines.insert("Architecture: Apple silicon (arm64)", at: 0)
         #endif
-        for key in ["PSTR", "PDTR", "PPBR", "VD0R", "ID0R", "B0AV", "B0AC", "PC0C", "B0FC", "B0RM", "TB0T"] {
+        for key in ["PSTR", "PDTR", "PPBR", "VD0R", "ID0R", "B0AV", "B0AC", "PC0C", "B0FC", "B0RM", "TB0T",
+                    // Charge-control switches (read only here; the helper writes them)
+                    "CHTE", "CH0B", "CH0C", "CHIE", "CH0I"] {
             if let raw = readRaw(key) {
                 let hex = raw.bytes.map { String(format: "%02x", $0) }.joined(separator: " ")
                 let value = readDouble(key).map { String(format: "%.3f", $0) }

@@ -8,7 +8,8 @@
 #     bash build.sh --install   build, copy to ~/Applications and launch it
 #     bash build.sh --watch     keep running; rebuild + relaunch whenever the code changes
 #     bash build.sh --release   universal (Apple silicon + Intel) build, zipped in ./release/
-#     bash build.sh --test      run the power-calculation tests (no app is built)
+#     bash build.sh --test      run the power and charge-policy tests (no app is built)
+#     bash install-helper.sh    (with sudo) install the charge-control helper from source
 #
 # Optional, for --release with an Apple Developer account:
 #     SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
@@ -24,7 +25,7 @@ MODE="${1:-}"
 
 APP_NAME="KwikBattery"
 BUNDLE_ID="com.kwikbattery.KwikBattery"
-VERSION="1.7"
+VERSION="1.8"
 BUILD_NUMBER="1"
 MIN_MACOS="14.0"
 
@@ -127,9 +128,20 @@ if [[ "$MODE" == "--test" ]]; then
     -sdk "$SDK" \
     "$SRC/BatteryInfo.swift" Tests/PowerTests.swift \
     -o "$TEST_OUT/power-tests"
+  echo "==> Compiling charge-policy tests"
+  xcrun swiftc \
+    -parse-as-library \
+    -swift-version 5 \
+    -target "$(uname -m)-apple-macos$MIN_MACOS" \
+    -sdk "$SDK" \
+    "$SRC/ChargePolicy.swift" Tests/ChargePolicyTests.swift \
+    -o "$TEST_OUT/policy-tests"
   echo "==> Running"
   "$TEST_OUT/power-tests"
-  exit $?
+  POWER_STATUS=$?
+  "$TEST_OUT/policy-tests"
+  POLICY_STATUS=$?
+  exit $(( POWER_STATUS != 0 || POLICY_STATUS != 0 ))
 fi
 
 # Build in a temp folder: iCloud-synced folders like Documents attach
@@ -165,6 +177,21 @@ else
   echo "==> Compiling Swift ($ARCH, macOS $MIN_MACOS+)"
   compile "$ARCH" "$APP/Contents/MacOS/$APP_NAME"
 fi
+
+echo "==> Compiling charge-control helper"
+helper_arch() {  # $1 = arch, $2 = output
+  xcrun swiftc -O -swift-version 5 -target "$1-apple-macos$MIN_MACOS" -sdk "$SDK" \
+    Helper/main.swift "$SRC/ChargePolicy.swift" -o "$2"
+}
+if [[ "$MODE" == "--release" ]]; then
+  helper_arch arm64 "$OUT/kwikbatteryd-arm64"
+  helper_arch x86_64 "$OUT/kwikbatteryd-x86_64"
+  lipo -create "$OUT/kwikbatteryd-arm64" "$OUT/kwikbatteryd-x86_64" -output "$APP/Contents/Resources/kwikbatteryd"
+else
+  helper_arch "$(uname -m)" "$APP/Contents/Resources/kwikbatteryd"
+fi
+codesign --force --sign - "$APP/Contents/Resources/kwikbatteryd"
+cp install-helper.sh uninstall-helper.sh "$APP/Contents/Resources/"
 
 echo "==> Writing Info.plist"
 # The Xcode Info.plist uses $(BUILD_SETTING) placeholders; fill them in here.

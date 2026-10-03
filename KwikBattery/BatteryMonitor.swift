@@ -122,6 +122,19 @@ final class BatteryMonitor: ObservableObject {
         info = newInfo
     }
 
+    /// One complete reading without the monitor object (used by `--status`).
+    /// Same sources, in the same order, as `refresh()`.
+    nonisolated static func readSnapshot() -> BatteryInfo {
+        let ps = readInternalBatteryPowerSource()
+        let sb = readSmartBatteryProperties()
+        var info = makeBatteryInfo(powerSource: ps, smartBattery: sb, adapter: readAdapterDetails())
+        info.poweredAccessories = AccessoryPowerReader.read(smartBattery: sb)
+        if info.hasBattery {
+            applyLiveSMC(to: &info)
+        }
+        return info
+    }
+
     /// Overlays fast-updating SMC sensor values on top of the (slow) IORegistry data.
     nonisolated static func applyLiveSMC(to info: inout BatteryInfo) {
         let smc = SMCReader.shared

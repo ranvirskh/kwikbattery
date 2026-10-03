@@ -20,6 +20,11 @@ struct KwikBatteryApp: App {
             print(BluetoothDeviceMonitor.diagnosticReport())
             exit(0)
         }
+        // `KwikBattery --status` prints a JSON snapshot and exits (for scripts / Shortcuts).
+        if CommandLine.arguments.contains("--status") {
+            print(BatteryStatus.json(for: BatteryMonitor.readSnapshot()))
+            exit(0)
+        }
         if CommandLine.arguments.contains("--smc-diag") {
             for round in 1...3 {
                 print("--- SMC reading \(round) ---")
@@ -71,10 +76,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { info in
                 notifications.evaluate(info)
                 HealthHistory.shared.record(info)
+                RunTimeStore.shared.record(info)
             }
             .store(in: &cancellables)
 
         monitor.start()
+        EnergyHistory.shared.start()
         UpdateChecker.shared.checkIfDue()
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 2_000_000_000)

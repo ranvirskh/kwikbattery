@@ -13,10 +13,9 @@ import UserNotifications
 
 /// Something that acts when the battery runs hot or cools down again.
 ///
-/// Today nothing is registered: the hot-battery guard only alerts, because
-/// pausing charging needs the root charge-control helper. Once that helper is
-/// merged, it can register here and pause/resume charging at the same
-/// threshold, episode rules and re-arm margin the alert uses.
+/// Pausing charging itself is done by the charge-control helper, which reads
+/// the temperature on its own (ChargePolicy, rule 0) so it works even when the
+/// app isn't running. This hook stays for anything else that wants to react.
 @MainActor
 protocol HotBatteryResponder: AnyObject {
     func batteryBecameHot(celsius: Double, threshold: Double)
@@ -185,8 +184,11 @@ final class NotificationManager: ObservableObject {
             post(id: "hot",
                  title: "Battery Is Hot",
                  body: "The battery is at \(Format.temperature(celsius: celsius, fahrenheit: fahrenheit)) "
-                     + "(alert at \(limit)). Heat wears batteries out faster: give the Mac some air "
-                     + "or lighten the load.")
+                     + "(alert at \(limit)). "
+                     + (ChargeControl.shared.pausesWhenHot
+                        ? "KwikBattery has paused charging until it cools down. "
+                        : "Heat wears batteries out faster. ")
+                     + "Give the Mac some air or lighten the load.")
         case .cooledDown:
             hotBatteryResponder?.batteryCooledDown(celsius: celsius, threshold: threshold)
         }
@@ -230,8 +232,10 @@ final class NotificationManager: ObservableObject {
             didNotifyPaused = false
             return
         }
+        // KwikBattery's own helper holding the charge isn't news.
+        let helperHolding = ChargeControl.shared.reachable && ChargeControl.shared.status?.mode != .normal
         guard AppSettings.notifyChargingPaused, info.state == .notCharging,
-              !info.isFullyCharged, info.percentage < 98 else {
+              !info.isFullyCharged, info.percentage < 98, !helperHolding else {
             pausedStartedAt = nil
             return
         }

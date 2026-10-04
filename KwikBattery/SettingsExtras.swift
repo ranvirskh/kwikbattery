@@ -117,6 +117,7 @@ struct NotificationExtrasSettings: View {
     @AppStorage(SettingsKey.hotThreshold) private var hotThreshold = SettingsDefault.hotThreshold
     @AppStorage(SettingsKey.notifyWeakCharger) private var notifyWeakCharger = SettingsDefault.notifyWeakCharger
     @AppStorage(SettingsKey.notifyChargingPaused) private var notifyChargingPaused = SettingsDefault.notifyChargingPaused
+    @ObservedObject private var chargeControl = ChargeControl.shared
     @AppStorage(SettingsKey.notifySleepDrain) private var notifySleepDrain = SettingsDefault.notifySleepDrain
     @AppStorage(SettingsKey.sleepDrainPerHour) private var sleepDrainPerHour = SettingsDefault.sleepDrainPerHour
     @AppStorage(SettingsKey.notifyDeviceLow) private var notifyDeviceLow = SettingsDefault.notifyDeviceLow
@@ -136,7 +137,9 @@ struct NotificationExtrasSettings: View {
                 .labelsHidden()
         }
         .disabled(!notifyHot)
-        Text("Alerts only: it does not pause charging yet. Re-arms once the battery cools 3 °C below the threshold.")
+        Text(chargeControl.pausesWhenHot
+             ? "Charging is also paused at this temperature (Charge control). Re-arms once the battery cools 3 °C below the threshold."
+             : "Re-arms once the battery cools 3 °C below the threshold. To also pause charging at this temperature, install the charge-control helper (Charge control, above).")
             .font(.caption)
             .foregroundStyle(.secondary)
 

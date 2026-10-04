@@ -107,10 +107,10 @@ once and tap **Trust**. In Finder, tick "Show this iPhone when on Wi-Fi".
     - An animated power-flow diagram: charger → battery, MacBook and the connected devices your Mac is powering over USB-C.
   - **Connected devices:**
     - AirPods (left, right and case), Magic Mouse, Keyboard and Trackpad, other Bluetooth accessories, and USB-powered devices with their live wattage.
-    - iPhone and iPad battery levels if the optional libimobiledevice tool is installed (see Optional).
+    - iPhone and iPad battery levels (the Terminal installer sets this up).
 - **App energy over time.** Tap the chart icon on **Top Energy Users** to see which apps used the most battery today, over 7 days and over 30 days, in watt-hours and as a share of everything the Mac used. KwikBattery samples every 5 minutes (15 in Low Power Mode), only while you're on battery. The figures are approximate, because macOS's Energy Impact score is spread over the Mac's measured power. You can switch this off or reset it in Settings.
 - **Notifications.** Alerts for 100% while plugged in, low battery, low battery health and slow charging. You set every threshold.
-  - **Hot battery** (on by default): an alert when the battery reaches 40 °C, or whatever threshold you set between 30 and 50 °C. It fires once and re-arms after the battery cools 3 °C. It only alerts: it doesn't pause charging.
+  - **Hot battery** (on by default): an alert when the battery reaches 40 °C, or whatever threshold you set between 30 and 50 °C. It fires once and re-arms after the battery cools 3 °C. With the charge-control helper installed, KwikBattery can also pause charging at the same temperature (see Charge control).
   - **Charger can't keep up** (on by default): an alert when the Mac is plugged in but the battery has drained for 3 minutes, because the Mac draws more than the adapter supplies. A **Charger check** line under Power & Electrical reads OK, Weak adapter or Charging slowly.
   - **Charging paused** (off by default): a notice, with the reason, when macOS has held the charge for 2 minutes while plugged in.
 - **Charge timeline.** Tap the big percentage to see the charge level over the last 24 hours, with time spent plugged in shaded, plus the lowest and highest level and the last sleep.
@@ -158,6 +158,24 @@ In the terminal, pipe it to `jq`, for example `... --status | jq .percent`.
 
 In **Shortcuts**, add a **Run Shell Script** action with the command above, then a **Get Dictionary from Input** action. Use **Get Dictionary Value** to pull out `percent`, `state` or any other key, and use it in an If, a notification or a log.
 
+## Charge control (optional, needs the helper)
+
+Settings → **Charge control** adds five things:
+
+- **Charge limit.** Hold the battery at, say, 80% while plugged in; charging resumes a few points below the limit.
+- **Automatic discharge.** If the battery is above the limit (you charged to 100% for a trip), run on the battery until it falls to the limit.
+- **Clamshell discharge.** Optionally keep discharging with the lid closed, for use with an external display. Without a display the Mac sleeps when the lid closes, so KwikBattery switches the adapter back on *before* sleep and never lets a Mac sleep on a draining battery.
+- **Pause charging when hot.** Uses the same temperature as the Hot battery alert (40 °C by default). While the battery is at or above it, KwikBattery stops charging; charging resumes once the battery has cooled 3 °C, and never stays paused below 30% charge.
+- **Top-up scheduling.** "Top up now", or schedules like *weekdays 07:00 → 100%*: charge past the limit at that time, then return to the limit.
+
+Only an administrator can tell the battery to stop charging, so this uses a small root helper (`kwikbatteryd`, a LaunchDaemon) installed on request: press **Install Helper…** in Settings, or run `sudo bash install-helper.sh`. The app itself never writes to the SMC and everything else works without the helper. Remove it any time with **Remove Helper…** or `sudo bash uninstall-helper.sh`.
+
+App updates replace the app but not the helper. When an update needs a newer helper, Settings → Charge control shows **Update Helper…**.
+
+Safeguards: the helper restores normal charging when it starts, stops, receives SIGTERM, or before every sleep; every SMC write is read back and, if the value doesn't stick, charge control pauses itself and says why; keys that don't exist on your Mac are never touched; settings are clamped to safe ranges. To check what your Mac supports without changing anything, run `/Library/PrivilegedHelperTools/kwikbatteryd --probe` (or `bash build.sh` and look at the SMC check). If anything ever looks wrong: `sudo /Library/PrivilegedHelperTools/kwikbatteryd --restore`.
+
+The SMC switches used are `CHTE` / `CH0B`+`CH0C` (inhibit charging) and `CHIE` / `CH0I` (adapter off). Apple doesn't document them and they have changed between macOS releases, so please report what `--probe` prints on your Mac.
+
 ## Help test
 
 If you have an **Intel Mac** or an older Apple silicon model, please follow [TESTING.md](TESTING.md) and send the report.
@@ -194,7 +212,7 @@ If you do have Xcode, you can also open `KwikBattery.xcodeproj` and press ⌘R.
 - **Battery data:** `IOPSCopyPowerSourcesInfo` and the `AppleSmartBattery` entry in the IORegistry. The code in `BatteryMonitor.swift` has detailed comments.
 - **Live power (Apple silicon):** `PowerTelemetryData` for system input, system load and battery power. `PowerOutDetails` gives the power sent out through each USB-C port.
 - **Bluetooth levels:** `system_profiler SPBluetoothDataType` and HID battery properties.
-- **App Sandbox:** turned off so the app can run the tools above. It needs no special entitlements and makes no network requests apart from the update check and the optional usage count described below.
+- **App Sandbox:** turned off so the app can run the tools above. It needs no special entitlements and makes no network requests apart from the update check and the optional usage count described below. The charge-control helper talks to the app over a local Unix socket only.
 
 ## Privacy: histories stay on your Mac
 

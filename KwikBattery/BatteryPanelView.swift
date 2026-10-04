@@ -27,6 +27,7 @@ struct BatteryPanelView: View {
     @State private var confirmingUpdate = false
     @State private var showingHealthHistory = false
     @State private var showingEnergyHistory = false
+    @State private var showingTimeline = false
     @ObservedObject private var runTime = RunTimeStore.shared
     @AppStorage(SettingsKey.smoothTimeEstimate) private var smoothTimeEstimate = SettingsDefault.smoothTimeEstimate
 
@@ -42,8 +43,27 @@ struct BatteryPanelView: View {
             updateBanner
 
             if info.hasBattery {
-                heroCard
-                    .appearEffect()
+                Group {
+                    if showingTimeline {
+                        ChargeTimelineView {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                showingTimeline = false
+                            }
+                        }
+                        .transition(.opacity)
+                    } else {
+                        heroCard
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                    showingTimeline = true
+                                }
+                            }
+                            .help("Show charge over the last 24 hours")
+                            .transition(.opacity)
+                    }
+                }
+                .appearEffect()
 
                 PanelSection("Battery Information", icon: "info", tint: Color.blue,
                              isExpanded: $infoExpanded) {
@@ -322,10 +342,16 @@ struct BatteryPanelView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(timeTitle)
-                        .font(PanelFont.eyebrow(8))
-                        .tracking(0.8)
-                        .foregroundStyle(Color.white.opacity(0.45))
+                    HStack(spacing: 3) {
+                        // Hint that the card opens the 24-hour timeline.
+                        Image(systemName: "chart.xyaxis.line")
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundStyle(Color.white.opacity(0.35))
+                        Text(timeTitle)
+                            .font(PanelFont.eyebrow(8))
+                            .tracking(0.8)
+                            .foregroundStyle(Color.white.opacity(0.45))
+                    }
                     Text(timeValue)
                         // "Calculating" needs more room than "29h 6m" does.
                         .font(PanelFont.title(timeValue.count > 7 ? 11 : 15))

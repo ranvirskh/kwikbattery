@@ -244,6 +244,12 @@ final class NotificationManager: ObservableObject {
 
     // MARK: - Posting
 
+    /// For alerts raised elsewhere (sleep drain, Bluetooth devices). Same
+    /// delivery as the built-in ones; the caller owns the once-per-episode rule.
+    func deliver(id: String, title: String, body: String) {
+        post(id: id, title: title, body: body)
+    }
+
     func sendTestNotification() {
         post(id: "test-\(UUID().uuidString)",
              title: "KwikBattery Notifications Work",

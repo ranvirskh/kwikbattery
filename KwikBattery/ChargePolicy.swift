@@ -15,6 +15,10 @@
 //    discharge  run on the battery while plugged in (adapter off, charging inhibited)
 //
 //  Priority, highest first
+//    0. Heat: while the battery is at or above the hot limit, charging is
+//       paused (this works even with "Manage charging" off). It resumes once the
+//       battery has cooled `hotRearmMargin` degrees, and never below
+//       `hotPauseMinimumPercent` charge.
 //    1. An active top-up (manual "Top up now" or a schedule) charges to its target.
 //    2. Automatic discharge brings the battery down to the limit.
 //    3. The charge limit holds the battery at the limit and resumes charging once
@@ -53,6 +57,10 @@ struct ChargePolicyConfig: Codable, Equatable {
     var schedules: [TopUpSchedule] = []
     /// A scheduled top-up that hasn't reached its target gives up after this long.
     var topUpWindowMinutes = 360
+    /// Pause charging while the battery is at or above `hotLimitCelsius`.
+    var pauseWhenHot = true
+    /// The app keeps this equal to its Hot battery alert threshold.
+    var hotLimitCelsius = 40.0
 
     init() {}
 
@@ -67,6 +75,8 @@ struct ChargePolicyConfig: Codable, Equatable {
         dischargeWithLidClosed = try c.decodeIfPresent(Bool.self, forKey: .dischargeWithLidClosed) ?? d.dischargeWithLidClosed
         schedules = try c.decodeIfPresent([TopUpSchedule].self, forKey: .schedules) ?? d.schedules
         topUpWindowMinutes = try c.decodeIfPresent(Int.self, forKey: .topUpWindowMinutes) ?? d.topUpWindowMinutes
+        pauseWhenHot = try c.decodeIfPresent(Bool.self, forKey: .pauseWhenHot) ?? d.pauseWhenHot
+        hotLimitCelsius = try c.decodeIfPresent(Double.self, forKey: .hotLimitCelsius) ?? d.hotLimitCelsius
     }
 
     /// The same settings with every value forced into a safe range.
@@ -76,6 +86,7 @@ struct ChargePolicyConfig: Codable, Equatable {
         c.sailingRange = min(max(sailingRange, 1), 10)
         c.dischargeTolerance = min(max(dischargeTolerance, 1), 10)
         c.topUpWindowMinutes = min(max(topUpWindowMinutes, 30), 1440)
+        c.hotLimitCelsius = hotLimitCelsius.isFinite ? min(max(hotLimitCelsius, 30), 50) : 40
         c.schedules = schedules.map { s in
             var s = s
             s.targetPercent = min(max(s.targetPercent, 50), 100)
@@ -93,6 +104,8 @@ struct PolicyInput {
     var pluggedIn: Bool
     var lidClosed: Bool
     var now: Date
+    /// Battery temperature, when it could be read. nil keeps the heat state as it was.
+    var temperatureC: Double? = nil
 }
 
 struct PolicyDecision: Equatable {
@@ -100,6 +113,8 @@ struct PolicyDecision: Equatable {
     var reason: String
     var effectiveLimit: Int
     var topUpActive: Bool
+    /// True when charging is paused because the battery is hot.
+    var hotPaused = false
 }
 
 struct PolicyEngine {
@@ -110,6 +125,17 @@ struct PolicyEngine {
     private(set) var discharging = false
     private(set) var manualTopUp: (target: Int, expires: Date)?
     private var completed: [UUID: Date] = [:]
+    /// Latched "battery is hot" state (see decide).
+    private(set) var hot = false
+    /// Set when a hot episode let charging resume because the charge got low;
+    /// it then stays released until the battery cools, instead of flapping at 30%.
+    private(set) var hotReleased = false
+
+    /// Charging resumes once the battery is this many degrees below the hot limit.
+    static let hotRearmMargin = 3.0
+    /// Below this charge a hot battery still charges: running a nearly empty
+    /// Mac flat is worse than the heat, and macOS limits hot charging itself.
+    static let hotPauseMinimumPercent = 30
 
     init(config: ChargePolicyConfig = ChargePolicyConfig(), calendar: Calendar = .current) {
         self.config = config
@@ -136,6 +162,38 @@ struct PolicyEngine {
     mutating func decide(_ input: PolicyInput) -> PolicyDecision {
         let c = config.sanitized
         let pct = min(max(input.percent, 0), 100)
+
+        // 0. Heat. Latched like the alert: on at the limit, off 3 °C below it.
+        if !c.pauseWhenHot {
+            hot = false
+        } else if let t = input.temperatureC, t.isFinite {
+            if !hot, t >= c.hotLimitCelsius {
+                hot = true
+            } else if hot, t <= c.hotLimitCelsius - Self.hotRearmMargin {
+                hot = false
+            }
+        }
+
+        if !hot {
+            hotReleased = false
+        } else if pct < Self.hotPauseMinimumPercent {
+            hotReleased = true
+        }
+
+        var decision = decideIgnoringHeat(input, c: c, pct: pct)
+        if hot, !hotReleased, input.pluggedIn {
+            decision.hotPaused = true
+            if decision.mode == .normal {
+                let resume = String(format: "%.0f", c.hotLimitCelsius - Self.hotRearmMargin)
+                let now = input.temperatureC.map { String(format: " (%.1f °C)", $0) } ?? ""
+                decision.mode = .hold
+                decision.reason = "Charging paused: battery is hot\(now), resumes below \(resume) °C"
+            }
+        }
+        return decision
+    }
+
+    private mutating func decideIgnoringHeat(_ input: PolicyInput, c: ChargePolicyConfig, pct: Int) -> PolicyDecision {
         activeScheduledTarget = nil
 
         guard c.enabled else {
@@ -246,6 +304,9 @@ struct HelperStatus: Codable {
     var reason = ""
     var effectiveLimit = 100
     var topUpActive = false
+    /// Optional so a newer app still decodes an older helper's status.
+    var hotPaused: Bool?
+    var temperatureC: Double?
     /// The SMC keys this Mac was found to support (nil = not supported).
     var chargeKey: String?
     var adapterKey: String?

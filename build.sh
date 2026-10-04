@@ -8,7 +8,7 @@
 #     bash build.sh --install   build, copy to ~/Applications and launch it
 #     bash build.sh --watch     keep running; rebuild + relaunch whenever the code changes
 #     bash build.sh --release   universal (Apple silicon + Intel) build, zipped in ./release/
-#     bash build.sh --test      run the power and charge-policy tests (no app is built)
+#     bash build.sh --test      run the power, charge-policy and insights tests (no app is built)
 #     bash install-helper.sh    (with sudo) install the charge-control helper from source
 #
 # Optional, for --release with an Apple Developer account:
@@ -25,7 +25,7 @@ MODE="${1:-}"
 
 APP_NAME="KwikBattery"
 BUNDLE_ID="com.kwikbattery.KwikBattery"
-VERSION="1.8"
+VERSION="1.10.0"
 BUILD_NUMBER="1"
 MIN_MACOS="14.0"
 
@@ -136,12 +136,22 @@ if [[ "$MODE" == "--test" ]]; then
     -sdk "$SDK" \
     "$SRC/ChargePolicy.swift" Tests/ChargePolicyTests.swift \
     -o "$TEST_OUT/policy-tests"
+  echo "==> Compiling insights tests"
+  xcrun swiftc \
+    -parse-as-library \
+    -swift-version 5 \
+    -target "$(uname -m)-apple-macos$MIN_MACOS" \
+    -sdk "$SDK" \
+    "$SRC/BatteryInfo.swift" "$SRC/BatteryInsights.swift" "$SRC/EnergyLedger.swift" \
+    "$SRC/UsageInsights.swift" \
+    Tests/InsightsTests.swift Tests/UsageInsightsTests.swift \
+    -o "$TEST_OUT/insights-tests"
   echo "==> Running"
-  "$TEST_OUT/power-tests"
-  POWER_STATUS=$?
-  "$TEST_OUT/policy-tests"
-  POLICY_STATUS=$?
-  exit $(( POWER_STATUS != 0 || POLICY_STATUS != 0 ))
+  TEST_STATUS=0
+  "$TEST_OUT/power-tests" || TEST_STATUS=1
+  "$TEST_OUT/policy-tests" || TEST_STATUS=1
+  "$TEST_OUT/insights-tests" || TEST_STATUS=1
+  exit $TEST_STATUS
 fi
 
 # Build in a temp folder: iCloud-synced folders like Documents attach

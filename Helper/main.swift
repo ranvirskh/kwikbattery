@@ -195,6 +195,28 @@ extension SMC {
         return all
     }
 
+    /// Battery temperature in °C from TB0T/TB1T: a little-endian float on Apple
+    /// silicon, big-endian fixed point (sp78) on Intel. nil if unreadable or absurd.
+    func batteryTemperature() -> Double? {
+        for key in ["TB0T", "TB1T"] {
+            guard let bytes = read(key), let type = typeName(of: key) else { continue }
+            var value: Double?
+            switch type {
+            case "flt ":
+                guard bytes.count >= 4 else { continue }
+                let bits = UInt32(bytes[0]) | UInt32(bytes[1]) << 8 | UInt32(bytes[2]) << 16 | UInt32(bytes[3]) << 24
+                value = Double(Float(bitPattern: bits))
+            case "sp78":
+                guard bytes.count >= 2 else { continue }
+                value = Double(Int16(bitPattern: UInt16(bytes[0]) << 8 | UInt16(bytes[1]))) / 256
+            default:
+                continue
+            }
+            if let value, value.isFinite, value > -20, value < 90 { return value }
+        }
+        return nil
+    }
+
     /// Sets the switch and confirms the SMC kept the value.
     func set(_ s: SMCSwitch, on: Bool) -> Bool {
         for k in s.keys { if !write(k.name, on ? k.on : k.off) { return false } }
@@ -364,8 +386,9 @@ final class Controller {
         }
         let lid = Sensors.lidClosed()
         let pluggedIn = reading.onAC || adapterOffWanted
+        let temperature = smc.batteryTemperature()
         let decision = engine.decide(PolicyInput(percent: reading.percent, pluggedIn: pluggedIn,
-                                                 lidClosed: lid, now: Date()))
+                                                 lidClosed: lid, now: Date(), temperatureC: temperature))
         apply(decision.mode, lidClosed: lid)
 
         status.percent = reading.percent
@@ -375,6 +398,8 @@ final class Controller {
         status.reason = broken == nil ? decision.reason : "Charge control is paused"
         status.effectiveLimit = decision.effectiveLimit
         status.topUpActive = decision.topUpActive
+        status.hotPaused = broken == nil ? decision.hotPaused : false
+        status.temperatureC = temperature
         status.error = broken
         status.emulatedHold = (chargeSwitch == nil && adapterSwitch != nil) ? true : nil
         status.policy = engine.config
@@ -505,6 +530,7 @@ func runProbe() {
     print("Charge inhibit via: \(charge?.label ?? "none")")
     print("Adapter off via:    \(adapter?.label ?? "none")")
     if let b = Sensors.battery() { print("Battery \(b.percent)%  on AC: \(b.onAC)") }
+    print("Battery temperature: \(smc.batteryTemperature().map { String(format: "%.1f °C", $0) } ?? "unreadable")")
     print("Lid closed: \(Sensors.lidClosed())")
     print("Running as root: \(geteuid() == 0)")
 }

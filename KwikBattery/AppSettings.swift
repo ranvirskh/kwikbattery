@@ -24,6 +24,23 @@ enum SettingsKey {
     static let lowPowerMode         = "lowPowerMode"
     static let showLowPowerToggle   = "showLowPowerToggle"       // in the dropdown
     static let lastHealthAlertDate  = "lastHealthAlertDate"      // internal
+    static let shareUsageCount      = "shareUsageCount"          // anonymous daily count
+
+    // 1.8
+    static let trackEnergyHistory   = "trackEnergyHistory"
+    static let notifyHot            = "notifyHot"
+    static let hotThreshold         = "hotThreshold"             // °C (Double)
+    static let notifyWeakCharger    = "notifyWeakCharger"
+    static let notifyChargingPaused = "notifyChargingPaused"
+    static let smoothTimeEstimate   = "smoothTimeEstimate"
+    static let menuBarText          = "menuBarText"              // MenuBarTextMode raw value
+
+    // 1.9
+    static let notifySleepDrain     = "notifySleepDrain"
+    static let sleepDrainPerHour    = "sleepDrainPerHour"        // %/hour (Double)
+    static let notifyDeviceLow      = "notifyDeviceLow"
+    static let deviceLowThreshold   = "deviceLowThreshold"       // percent (Double)
+    static let openPanelHotKey      = "openPanelHotKey"          // HotKeyChoice raw value
 }
 
 enum SettingsDefault {
@@ -38,6 +55,19 @@ enum SettingsDefault {
     static let slowChargingWatts    = 10.0
     static let lowPowerMode         = false
     static let showLowPowerToggle   = true
+    static let shareUsageCount      = true
+    static let trackEnergyHistory   = true
+    static let notifyHot            = true
+    static let hotThreshold         = 40.0
+    static let notifyWeakCharger    = true
+    static let notifyChargingPaused = false
+    static let smoothTimeEstimate   = false
+    static let menuBarText          = MenuBarTextMode.none.rawValue
+    static let notifySleepDrain     = true
+    static let sleepDrainPerHour    = 1.5
+    static let notifyDeviceLow      = true
+    static let deviceLowThreshold   = 20.0
+    static let openPanelHotKey      = HotKeyChoice.off.rawValue
 }
 
 enum AppSettings {
@@ -58,6 +88,19 @@ enum AppSettings {
             SettingsKey.slowChargingWatts:   SettingsDefault.slowChargingWatts,
             SettingsKey.lowPowerMode:        SettingsDefault.lowPowerMode,
             SettingsKey.showLowPowerToggle:  SettingsDefault.showLowPowerToggle,
+            SettingsKey.shareUsageCount:     SettingsDefault.shareUsageCount,
+            SettingsKey.trackEnergyHistory:  SettingsDefault.trackEnergyHistory,
+            SettingsKey.notifyHot:           SettingsDefault.notifyHot,
+            SettingsKey.hotThreshold:        SettingsDefault.hotThreshold,
+            SettingsKey.notifyWeakCharger:   SettingsDefault.notifyWeakCharger,
+            SettingsKey.notifyChargingPaused: SettingsDefault.notifyChargingPaused,
+            SettingsKey.smoothTimeEstimate:  SettingsDefault.smoothTimeEstimate,
+            SettingsKey.menuBarText:         SettingsDefault.menuBarText,
+            SettingsKey.notifySleepDrain:    SettingsDefault.notifySleepDrain,
+            SettingsKey.sleepDrainPerHour:   SettingsDefault.sleepDrainPerHour,
+            SettingsKey.notifyDeviceLow:     SettingsDefault.notifyDeviceLow,
+            SettingsKey.deviceLowThreshold:  SettingsDefault.deviceLowThreshold,
+            SettingsKey.openPanelHotKey:     SettingsDefault.openPanelHotKey,
         ])
     }
 
@@ -72,6 +115,27 @@ enum AppSettings {
     static var slowChargingWatts: Double { defaults.double(forKey: SettingsKey.slowChargingWatts) }
     static var lowPowerMode: Bool        { defaults.bool(forKey: SettingsKey.lowPowerMode) }
     static var showLowPowerToggle: Bool  { defaults.bool(forKey: SettingsKey.showLowPowerToggle) }
+    static var shareUsageCount: Bool     { defaults.bool(forKey: SettingsKey.shareUsageCount) }
+    static var trackEnergyHistory: Bool  { defaults.bool(forKey: SettingsKey.trackEnergyHistory) }
+    static var notifyHot: Bool           { defaults.bool(forKey: SettingsKey.notifyHot) }
+    static var hotThreshold: Double      { defaults.double(forKey: SettingsKey.hotThreshold) }
+    static var notifyWeakCharger: Bool   { defaults.bool(forKey: SettingsKey.notifyWeakCharger) }
+    static var notifyChargingPaused: Bool { defaults.bool(forKey: SettingsKey.notifyChargingPaused) }
+    static var smoothTimeEstimate: Bool  { defaults.bool(forKey: SettingsKey.smoothTimeEstimate) }
+    static var notifySleepDrain: Bool    { defaults.bool(forKey: SettingsKey.notifySleepDrain) }
+    static var sleepDrainPerHour: Double { defaults.double(forKey: SettingsKey.sleepDrainPerHour) }
+    static var notifyDeviceLow: Bool     { defaults.bool(forKey: SettingsKey.notifyDeviceLow) }
+    static var deviceLowThreshold: Double { defaults.double(forKey: SettingsKey.deviceLowThreshold) }
+    static var openPanelHotKey: HotKeyChoice {
+        HotKeyChoice(rawValue: defaults.string(forKey: SettingsKey.openPanelHotKey) ?? "") ?? .off
+    }
+    static var menuBarText: MenuBarTextMode {
+        MenuBarTextMode(rawValue: defaults.string(forKey: SettingsKey.menuBarText) ?? "") ?? .none
+    }
+
+    static func setShareUsageCount(_ enabled: Bool) {
+        defaults.set(enabled, forKey: SettingsKey.shareUsageCount)
+    }
 
     static func setLowPowerMode(_ enabled: Bool) {
         defaults.set(enabled, forKey: SettingsKey.lowPowerMode)

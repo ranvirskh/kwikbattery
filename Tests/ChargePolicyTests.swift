@@ -36,8 +36,9 @@ struct ChargePolicyTests {
         return PolicyEngine(config: c, calendar: utc)
     }
 
-    static func input(_ pct: Int, plugged: Bool = true, lid: Bool = false, at: Date = date(hour: 12)) -> PolicyInput {
-        PolicyInput(percent: pct, pluggedIn: plugged, lidClosed: lid, now: at)
+    static func input(_ pct: Int, plugged: Bool = true, lid: Bool = false, at: Date = date(hour: 12),
+                      temp: Double? = nil) -> PolicyInput {
+        PolicyInput(percent: pct, pluggedIn: plugged, lidClosed: lid, now: at, temperatureC: temp)
     }
 
     static func main() {
@@ -162,6 +163,52 @@ struct ChargePolicyTests {
         cfg.schedules = [sched]
         let round = try? JSONDecoder().decode(ChargePolicyConfig.self, from: JSONEncoder().encode(cfg))
         check(round == cfg, "settings survive a JSON round trip")
+
+        print("pause charging when hot")
+        e = engine { $0.limit = 80; $0.hotLimitCelsius = 40 }
+        check(e.decide(input(60, temp: 39.9)).mode == .normal, "39.9 °C: charges")
+        d = e.decide(input(60, temp: 40))
+        check(d.mode == .hold && d.hotPaused, "40 °C: charging paused")
+        check(d.reason.contains("hot") && d.reason.contains("37"), "reason says hot and when it resumes (\(d.reason))")
+        check(e.decide(input(60, temp: 38)).mode == .hold, "38 °C: still paused (needs 3 °C of cooling)")
+        check(e.decide(input(60)).mode == .hold, "no reading: stays paused")
+        d = e.decide(input(60, temp: 37))
+        check(d.mode == .normal && !d.hotPaused, "37 °C: charging resumes")
+        check(e.decide(input(60, temp: 39)).mode == .normal, "39 °C after cooling: still charging (re-arms at 40)")
+
+        e = engine { $0.enabled = false }
+        d = e.decide(input(60, temp: 41))
+        check(d.mode == .hold && d.hotPaused, "heat pause works even with Manage charging off")
+        e = engine { $0.enabled = false; $0.pauseWhenHot = false }
+        check(e.decide(input(60, temp: 45)).mode == .normal, "pause-when-hot switched off: charges")
+        e = engine()
+        d = e.decide(input(60, plugged: false, temp: 45))
+        check(d.mode == .normal && !d.hotPaused, "on battery: nothing to pause")
+
+        e = engine()
+        check(e.decide(input(29, temp: 42)).mode == .normal, "below 30% a hot battery still charges")
+        check(e.decide(input(31, temp: 42)).mode == .normal, "and keeps charging past 30% until it cools (no flapping)")
+        check(e.decide(input(32, temp: 36)).mode == .normal, "cooled: normal")
+        check(e.decide(input(33, temp: 41)).mode == .hold, "hot again above 30%: paused again")
+
+        e = engine { $0.limit = 80; $0.autoDischarge = true }
+        d = e.decide(input(90, temp: 42))
+        check(d.mode == .discharge && d.hotPaused, "discharging already doesn't charge: keeps discharging")
+        e = engine { $0.limit = 80 }
+        e.startTopUp(target: 100, now: date(hour: 12))
+        check(e.decide(input(85, temp: 42)).mode == .hold, "heat beats a top-up")
+
+        e = engine { $0.hotLimitCelsius = 35 }
+        check(e.decide(input(60, temp: 35)).mode == .hold, "custom 35 °C limit")
+        var hotCfg = ChargePolicyConfig()
+        hotCfg.hotLimitCelsius = 60
+        check(hotCfg.sanitized.hotLimitCelsius == 50, "hot limit clamped to 50 °C")
+        hotCfg.hotLimitCelsius = 10
+        check(hotCfg.sanitized.hotLimitCelsius == 30, "hot limit clamped to 30 °C")
+        hotCfg.hotLimitCelsius = .nan
+        check(hotCfg.sanitized.hotLimitCelsius == 40, "NaN hot limit falls back to 40 °C")
+        check(decoded?.pauseWhenHot == true && decoded?.hotLimitCelsius == 40,
+              "older settings files get pause-when-hot on at 40 °C")
 
         print("\(checks) checks, \(failures) failed")
         exit(failures == 0 ? 0 : 1)

@@ -18,6 +18,7 @@ struct ChargeControlSection: View {
                 helperMissing
             } else {
                 statusRows
+                heatRows
                 limitRows
                 dischargeRows
                 topUpRows
@@ -77,6 +78,29 @@ struct ChargeControlSection: View {
                     .font(.caption).foregroundStyle(.orange)
             }
         }
+    }
+
+    // MARK: Heat
+
+    @ViewBuilder private var heatRows: some View {
+        Toggle("Pause charging when the battery is hot", isOn: $control.config.pauseWhenHot)
+        Text(heatCaption)
+            .font(.caption)
+            .foregroundStyle(control.status?.hotPaused == true ? Color.orange : Color.secondary)
+    }
+
+    private var heatCaption: String {
+        let limit = control.config.hotLimitCelsius
+        let threshold = AppSettings.useFahrenheit
+            ? String(format: "%.0f °F", limit * 9 / 5 + 32)
+            : String(format: "%.0f °C", limit)
+        if control.status?.hotPaused == true {
+            let now = control.status?.temperatureC.map {
+                Format.temperature(celsius: $0, fahrenheit: AppSettings.useFahrenheit)
+            } ?? "hot"
+            return "Paused now: the battery is \(now). Charging resumes once it has cooled 3 °C."
+        }
+        return "At \(threshold) (the Hot battery alert's temperature, set under Notifications). Works even with Manage charging off. Charging resumes after the battery cools 3 °C, and never stays paused below 30%."
     }
 
     // MARK: Limit

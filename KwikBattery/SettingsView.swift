@@ -85,6 +85,8 @@ struct SettingsView: View {
                 Text("Fahrenheit (°F)").tag(true)
             }
 
+            GeneralExtrasSettings()
+
             Toggle("Share an anonymous daily usage count", isOn: $shareUsageCount)
             Text("Sends one request a day containing only the app version, so the developer can see roughly how many people use KwikBattery. No battery data, device details or personal information. Off = nothing is sent.")
                 .font(.caption)
@@ -128,6 +130,8 @@ struct SettingsView: View {
             ThresholdSlider(title: "Alert when charging below",
                             value: $slowChargingWatts, range: 3...60, step: 1, unit: " W")
                 .disabled(!notifySlowCharging)
+
+            NotificationExtrasSettings()
 
             HStack {
                 Spacer()

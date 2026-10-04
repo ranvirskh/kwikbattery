@@ -13,8 +13,49 @@ A free, native macOS menu bar app for your battery and power. Every feature is i
   - **Connected devices:**
     - AirPods (left, right and case), Magic Mouse, Keyboard and Trackpad, other Bluetooth accessories, and USB-powered devices with their live wattage.
     - iPhone and iPad battery levels if the optional libimobiledevice tool is installed (see Optional).
+- **App energy over time.** Tap the chart icon on **Top Energy Users** to see which apps used the most battery today, over 7 days and over 30 days, in watt-hours and as a share of everything the Mac used. KwikBattery samples every 5 minutes (15 in Low Power Mode), only while you're on battery. The figures are approximate, because macOS's Energy Impact score is spread over the Mac's measured power. You can switch this off or reset it in Settings.
 - **Notifications.** Alerts for 100% while plugged in, low battery, low battery health and slow charging. You set every threshold.
+  - **Hot battery** (on by default): an alert when the battery reaches 40 °C, or whatever threshold you set between 30 and 50 °C. It fires once and re-arms after the battery cools 3 °C. It only alerts: it doesn't pause charging.
+  - **Charger can't keep up** (on by default): an alert when the Mac is plugged in but the battery has drained for 3 minutes, because the Mac draws more than the adapter supplies. A **Charger check** line under Power & Electrical reads OK, Weak adapter or Charging slowly.
+  - **Charging paused** (off by default): a notice, with the reason, when macOS has held the charge for 2 minutes while plugged in.
+- **Menu bar text** (off by default): percent, time left or battery watts next to the icon.
+- **Smoother time-remaining estimate** (off by default): time left from how fast the percentage has fallen over the last 45 minutes, instead of the momentary draw. Until there's enough data, macOS's own figure is shown.
 - **Settings.** Launch at login, percentage on or off, and °C or °F.
+
+## Command line and Shortcuts
+
+`--status` prints a JSON snapshot of the battery and exits. It doesn't open the app or disturb a copy that's already running:
+
+```bash
+~/Applications/KwikBattery.app/Contents/MacOS/KwikBattery --status
+```
+
+(Use `/Applications/...` if you installed the app there.)
+
+```json
+{
+  "adapterWatts" : 87,
+  "batteryWatts" : 58.04,
+  "charging" : true,
+  "cycles" : 120,
+  "healthPercent" : 90,
+  "inputWatts" : 86.04,
+  "percent" : 68,
+  "pluggedIn" : true,
+  "state" : "charging",
+  "systemLoadWatts" : 28,
+  "temperatureC" : 31.2,
+  "timeToEmptyMinutes" : null,
+  "timeToFullMinutes" : 52,
+  "voltage" : 12.55
+}
+```
+
+`state` is one of `charging`, `discharging`, `full`, `notCharging` or `noBattery`. Anything the Mac doesn't report is `null`. `batteryWatts` is positive while charging and negative on battery. The time estimates are macOS's own; the smoothed estimate needs the running app's history.
+
+In the terminal, pipe it to `jq`, for example `... --status | jq .percent`.
+
+In **Shortcuts**, add a **Run Shell Script** action with the command above, then a **Get Dictionary from Input** action. Use **Get Dictionary Value** to pull out `percent`, `state` or any other key, and use it in an If, a notification or a log.
 
 ## Install
 
@@ -134,6 +175,10 @@ If you do have Xcode, you can also open `KwikBattery.xcodeproj` and press ⌘R.
 - **Live power (Apple silicon):** `PowerTelemetryData` for system input, system load and battery power. `PowerOutDetails` gives the power sent out through each USB-C port.
 - **Bluetooth levels:** `system_profiler SPBluetoothDataType` and HID battery properties.
 - **App Sandbox:** turned off so the app can run the tools above. It needs no special entitlements and makes no network requests apart from the update check and the optional usage count described below.
+
+## Privacy: energy history stays on your Mac
+
+App energy history is saved only in `~/Library/Application Support/KwikBattery/energy-history.json`, with up to 35 days kept. It's never uploaded or sent anywhere. Turn it off with **Settings → General → Track app energy over time**, and delete it with **Reset energy history…** in the same place.
 
 ## Privacy: anonymous usage count
 

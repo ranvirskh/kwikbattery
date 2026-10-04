@@ -88,7 +88,14 @@ final class ChargeControl: ObservableObject {
     }
 
     /// True when the helper is installed and will pause charging when the battery is hot.
-    var pausesWhenHot: Bool { reachable && config.pauseWhenHot }
+    var pausesWhenHot: Bool { reachable && !helperOutdated && config.pauseWhenHot }
+
+    /// An installed helper older than this app expects: it keeps working, but
+    /// lacks newer features (like the heat pause) until it's reinstalled.
+    var helperOutdated: Bool {
+        guard reachable, let version = status?.version else { return false }
+        return version < HelperStatus.currentVersion
+    }
 
     func poll() {
         io.async { [weak self] in

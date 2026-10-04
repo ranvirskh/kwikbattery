@@ -17,6 +17,7 @@ struct ChargeControlSection: View {
             if !control.reachable {
                 helperMissing
             } else {
+                if control.helperOutdated { helperUpdate }
                 statusRows
                 heatRows
                 limitRows
@@ -43,6 +44,25 @@ struct ChargeControlSection: View {
                 .font(.callout)
             HStack {
                 Button(control.installing ? "Installing…" : "Install Helper…") { control.installHelper() }
+                    .disabled(control.installing)
+                Text("You'll be asked for your password once.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let message = control.installMessage {
+                Text(message).font(.caption).foregroundStyle(.red)
+            }
+        }
+    }
+
+    // MARK: Outdated helper
+
+    private var helperUpdate: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("A newer charge-control helper is available. App updates don't replace the helper, so install the new one to get pausing charging when the battery is hot.")
+                .font(.callout)
+            HStack {
+                Button(control.installing ? "Updating…" : "Update Helper…") { control.installHelper() }
                     .disabled(control.installing)
                 Text("You'll be asked for your password once.")
                     .font(.caption)

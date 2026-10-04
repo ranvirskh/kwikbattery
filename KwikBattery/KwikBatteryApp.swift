@@ -82,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         monitor.start()
         EnergyHistory.shared.start()
+        UsageTracking.start()
         UpdateChecker.shared.checkIfDue()
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 2_000_000_000)

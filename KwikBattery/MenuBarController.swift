@@ -59,6 +59,15 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             .map { _ in true }
             .prepend(true)
 
+        // Optional global shortcut that opens the panel (Settings › General).
+        GlobalHotKey.shared.onPress = { [weak self] in self?.togglePopover(nil) }
+        GlobalHotKey.shared.apply(AppSettings.openPanelHotKey)
+        NotificationCenter.default
+            .publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { _ in GlobalHotKey.shared.apply(AppSettings.openPanelHotKey) }
+            .store(in: &cancellables)
+
         // The smoothed run time is published separately, so the "Time left"
         // menu bar text also follows it.
         monitor.$info

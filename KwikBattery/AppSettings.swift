@@ -34,6 +34,13 @@ enum SettingsKey {
     static let notifyChargingPaused = "notifyChargingPaused"
     static let smoothTimeEstimate   = "smoothTimeEstimate"
     static let menuBarText          = "menuBarText"              // MenuBarTextMode raw value
+
+    // 1.9
+    static let notifySleepDrain     = "notifySleepDrain"
+    static let sleepDrainPerHour    = "sleepDrainPerHour"        // %/hour (Double)
+    static let notifyDeviceLow      = "notifyDeviceLow"
+    static let deviceLowThreshold   = "deviceLowThreshold"       // percent (Double)
+    static let openPanelHotKey      = "openPanelHotKey"          // HotKeyChoice raw value
 }
 
 enum SettingsDefault {
@@ -56,6 +63,11 @@ enum SettingsDefault {
     static let notifyChargingPaused = false
     static let smoothTimeEstimate   = false
     static let menuBarText          = MenuBarTextMode.none.rawValue
+    static let notifySleepDrain     = true
+    static let sleepDrainPerHour    = 1.5
+    static let notifyDeviceLow      = true
+    static let deviceLowThreshold   = 20.0
+    static let openPanelHotKey      = HotKeyChoice.off.rawValue
 }
 
 enum AppSettings {
@@ -84,6 +96,11 @@ enum AppSettings {
             SettingsKey.notifyChargingPaused: SettingsDefault.notifyChargingPaused,
             SettingsKey.smoothTimeEstimate:  SettingsDefault.smoothTimeEstimate,
             SettingsKey.menuBarText:         SettingsDefault.menuBarText,
+            SettingsKey.notifySleepDrain:    SettingsDefault.notifySleepDrain,
+            SettingsKey.sleepDrainPerHour:   SettingsDefault.sleepDrainPerHour,
+            SettingsKey.notifyDeviceLow:     SettingsDefault.notifyDeviceLow,
+            SettingsKey.deviceLowThreshold:  SettingsDefault.deviceLowThreshold,
+            SettingsKey.openPanelHotKey:     SettingsDefault.openPanelHotKey,
         ])
     }
 
@@ -105,6 +122,13 @@ enum AppSettings {
     static var notifyWeakCharger: Bool   { defaults.bool(forKey: SettingsKey.notifyWeakCharger) }
     static var notifyChargingPaused: Bool { defaults.bool(forKey: SettingsKey.notifyChargingPaused) }
     static var smoothTimeEstimate: Bool  { defaults.bool(forKey: SettingsKey.smoothTimeEstimate) }
+    static var notifySleepDrain: Bool    { defaults.bool(forKey: SettingsKey.notifySleepDrain) }
+    static var sleepDrainPerHour: Double { defaults.double(forKey: SettingsKey.sleepDrainPerHour) }
+    static var notifyDeviceLow: Bool     { defaults.bool(forKey: SettingsKey.notifyDeviceLow) }
+    static var deviceLowThreshold: Double { defaults.double(forKey: SettingsKey.deviceLowThreshold) }
+    static var openPanelHotKey: HotKeyChoice {
+        HotKeyChoice(rawValue: defaults.string(forKey: SettingsKey.openPanelHotKey) ?? "") ?? .off
+    }
     static var menuBarText: MenuBarTextMode {
         MenuBarTextMode(rawValue: defaults.string(forKey: SettingsKey.menuBarText) ?? "") ?? .none
     }

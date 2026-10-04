@@ -24,7 +24,7 @@ MODE="${1:-}"
 
 APP_NAME="KwikBattery"
 BUNDLE_ID="com.kwikbattery.KwikBattery"
-VERSION="1.8.0"
+VERSION="1.9.0"
 BUILD_NUMBER="1"
 MIN_MACOS="14.0"
 
@@ -134,7 +134,8 @@ if [[ "$MODE" == "--test" ]]; then
     -target "$(uname -m)-apple-macos$MIN_MACOS" \
     -sdk "$SDK" \
     "$SRC/BatteryInfo.swift" "$SRC/BatteryInsights.swift" "$SRC/EnergyLedger.swift" \
-    Tests/InsightsTests.swift \
+    "$SRC/UsageInsights.swift" \
+    Tests/InsightsTests.swift Tests/UsageInsightsTests.swift \
     -o "$TEST_OUT/insights-tests"
   echo "==> Running"
   TEST_STATUS=0

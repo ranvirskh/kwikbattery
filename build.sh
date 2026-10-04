@@ -8,7 +8,8 @@
 #     bash build.sh --install   build, copy to ~/Applications and launch it
 #     bash build.sh --watch     keep running; rebuild + relaunch whenever the code changes
 #     bash build.sh --release   universal (Apple silicon + Intel) build, zipped in ./release/
-#     bash build.sh --test      run the power and insights tests (no app is built)
+#     bash build.sh --test      run the power, charge-policy and insights tests (no app is built)
+#     bash install-helper.sh    (with sudo) install the charge-control helper from source
 #
 # Optional, for --release with an Apple Developer account:
 #     SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
@@ -24,7 +25,7 @@ MODE="${1:-}"
 
 APP_NAME="KwikBattery"
 BUNDLE_ID="com.kwikbattery.KwikBattery"
-VERSION="1.9.0"
+VERSION="1.10.0"
 BUILD_NUMBER="1"
 MIN_MACOS="14.0"
 
@@ -127,6 +128,14 @@ if [[ "$MODE" == "--test" ]]; then
     -sdk "$SDK" \
     "$SRC/BatteryInfo.swift" Tests/PowerTests.swift \
     -o "$TEST_OUT/power-tests"
+  echo "==> Compiling charge-policy tests"
+  xcrun swiftc \
+    -parse-as-library \
+    -swift-version 5 \
+    -target "$(uname -m)-apple-macos$MIN_MACOS" \
+    -sdk "$SDK" \
+    "$SRC/ChargePolicy.swift" Tests/ChargePolicyTests.swift \
+    -o "$TEST_OUT/policy-tests"
   echo "==> Compiling insights tests"
   xcrun swiftc \
     -parse-as-library \
@@ -140,6 +149,7 @@ if [[ "$MODE" == "--test" ]]; then
   echo "==> Running"
   TEST_STATUS=0
   "$TEST_OUT/power-tests" || TEST_STATUS=1
+  "$TEST_OUT/policy-tests" || TEST_STATUS=1
   "$TEST_OUT/insights-tests" || TEST_STATUS=1
   exit $TEST_STATUS
 fi
@@ -176,6 +186,28 @@ else
   ARCH="$(uname -m)"
   echo "==> Compiling Swift ($ARCH, macOS $MIN_MACOS+)"
   compile "$ARCH" "$APP/Contents/MacOS/$APP_NAME"
+fi
+
+echo "==> Compiling charge-control helper (optional)"
+# The helper is an optional extra. If it fails to compile, the app is still built
+# without it, and Settings → Charge control simply won't offer to install it.
+helper_arch() {  # $1 = arch, $2 = output
+  xcrun swiftc -O -swift-version 5 -target "$1-apple-macos$MIN_MACOS" -sdk "$SDK" \
+    Helper/main.swift "$SRC/ChargePolicy.swift" -o "$2"
+}
+HELPER_OK=1
+if [[ "$MODE" == "--release" ]]; then
+  { helper_arch arm64 "$OUT/kwikbatteryd-arm64" && helper_arch x86_64 "$OUT/kwikbatteryd-x86_64" \
+    && lipo -create "$OUT/kwikbatteryd-arm64" "$OUT/kwikbatteryd-x86_64" -output "$APP/Contents/Resources/kwikbatteryd"; } || HELPER_OK=0
+else
+  helper_arch "$(uname -m)" "$APP/Contents/Resources/kwikbatteryd" || HELPER_OK=0
+fi
+if [[ "$HELPER_OK" == "1" ]]; then
+  codesign --force --sign - "$APP/Contents/Resources/kwikbatteryd"
+  cp install-helper.sh uninstall-helper.sh "$APP/Contents/Resources/"
+else
+  echo "⚠️  The charge-control helper didn't compile; building KwikBattery without it."
+  rm -f "$APP/Contents/Resources/kwikbatteryd"
 fi
 
 echo "==> Writing Info.plist"

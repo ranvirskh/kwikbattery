@@ -46,12 +46,30 @@ final class UpdateChecker: ObservableObject {
         (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "0"
     }
 
-    /// Called at launch and when the popover opens; only hits the network once a day.
+    /// Called at launch and when the popover opens. Checks at most every 10
+    /// minutes, and a 30-minute timer keeps a menu bar app that's never opened
+    /// current too, so a new release reaches people within about half an hour.
+    /// GitHub has no push channel for an unsigned app, so this polls; an ETag
+    /// makes the usual "nothing new" reply (304) cheap and free of rate limits.
     func checkIfDue() {
+        startPeriodicChecks()
         let defaults = UserDefaults.standard
         let last = defaults.object(forKey: lastCheckKey) as? Date ?? .distantPast
-        guard Date().timeIntervalSince(last) > 24 * 60 * 60 else { return }
-        check()
+        guard Date().timeIntervalSince(last) > 10 * 60 else { return }
+        Task { await performCheck(userInitiated: false) }
+    }
+
+    private var periodicTimer: Timer?
+    private var etag: String?
+
+    private func startPeriodicChecks() {
+        guard periodicTimer == nil else { return }
+        let timer = Timer(timeInterval: 30 * 60, repeats: true) { _ in
+            Task { @MainActor in UpdateChecker.shared.checkIfDue() }
+        }
+        timer.tolerance = 5 * 60
+        RunLoop.main.add(timer, forMode: .common)
+        periodicTimer = timer
     }
 
     /// `hasSuffix("github.com")` also matches `evilgithub.com`. Require either
@@ -83,35 +101,66 @@ final class UpdateChecker: ObservableObject {
 
     private static let redirectGuard = RedirectGuard()
 
+    /// "Check for Updates…" in Settings.
     func check() {
         guard case .downloading = state else {
-            Task { await performCheck() }
+            Task { await performCheck(userInitiated: true) }
             return
         }
     }
 
-    private func performCheck() async {
-        state = .checking
+    private func performCheck(userInitiated: Bool) async {
+        // A background check must never interrupt a download, hide a pending
+        // relaunch, or flicker the banner it is about to confirm.
+        switch state {
+        case .downloading, .readyToRelaunch:
+            return
+        default:
+            break
+        }
+        let previous = state
+        if userInitiated { state = .checking }
         UserDefaults.standard.set(Date(), forKey: lastCheckKey)
 
+        // Background failures (offline, GitHub down) stay quiet: an "Update
+        // failed" banner every half hour on a train would be noise.
+        func fail(_ message: String) {
+            if userInitiated {
+                state = .failed(message)
+            } else if case .checking = previous {
+                state = .idle
+            } else {
+                state = previous
+            }
+        }
+
         guard let url = URL(string: "https://api.github.com/repos/\(owner)/\(repo)/releases/latest") else {
-            state = .failed("Bad update URL")
+            fail("Bad update URL")
             return
         }
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("KwikBattery/\(currentVersion)", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 15
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        // Only for background checks: "Check for Updates…" always gets a full reply.
+        if !userInitiated, let etag { request.setValue(etag, forHTTPHeaderField: "If-None-Match") }
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                state = .failed("GitHub returned an error")
+            if let http = response as? HTTPURLResponse, http.statusCode == 304 {
+                // Nothing new since the last full reply: keep what we showed.
+                if case .checking = previous { state = .idle } else { state = previous }
                 return
             }
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                fail("GitHub returned an error")
+                return
+            }
+            etag = http.value(forHTTPHeaderField: "ETag")
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let tag = json["tag_name"] as? String else {
-                state = .failed("Unexpected response")
+                fail("Unexpected response")
                 return
             }
             let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
@@ -131,7 +180,7 @@ final class UpdateChecker: ObservableObject {
                   let assetURL = URL(string: urlString),
                   assetURL.scheme == "https",
                   Self.isTrustedHost(assetURL.host) else {
-                state = .failed("No download found for \(latest)")
+                fail("No download found for \(latest)")
                 return
             }
             if UserDefaults.standard.string(forKey: skippedVersionKey) == latest {
@@ -140,7 +189,7 @@ final class UpdateChecker: ObservableObject {
             }
             state = .available(version: latest, notes: notes, url: assetURL)
         } catch {
-            state = .failed(error.localizedDescription)
+            fail(error.localizedDescription)
         }
     }
 

@@ -8,6 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		A1B2C3D4E5F60718293A4B22 /* UsagePing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B21 /* UsagePing.swift */; };
+		A1B2C3D4E5F60718293A4B42 /* UsageInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B41 /* UsageInsights.swift */; };
+		A1B2C3D4E5F60718293A4B44 /* UsageTracking.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B43 /* UsageTracking.swift */; };
+		A1B2C3D4E5F60718293A4B46 /* GlobalHotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B45 /* GlobalHotKey.swift */; };
+		A1B2C3D4E5F60718293A4B48 /* ChargeTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B47 /* ChargeTimelineView.swift */; };
 		A1B2C3D4E5F60718293A4B32 /* BatteryInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B31 /* BatteryInsights.swift */; };
 		A1B2C3D4E5F60718293A4B34 /* EnergyLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B33 /* EnergyLedger.swift */; };
 		A1B2C3D4E5F60718293A4B36 /* EnergyHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B35 /* EnergyHistory.swift */; };
@@ -41,6 +45,10 @@
 
 /* Begin PBXFileReference section */
 		A1B2C3D4E5F60718293A4B21 /* UsagePing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsagePing.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B41 /* UsageInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageInsights.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B43 /* UsageTracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageTracking.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B45 /* GlobalHotKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalHotKey.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B47 /* ChargeTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChargeTimelineView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B31 /* BatteryInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryInsights.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B33 /* EnergyLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnergyLedger.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B35 /* EnergyHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnergyHistory.swift; sourceTree = "<group>"; };
@@ -124,6 +132,10 @@
 				A3D051729E0AEEA5EAC2077A /* PowerFlowView.swift */,
 				F34DC80B282D1796A8F09109 /* SMCReader.swift */,
 				A1B2C3D4E5F60718293A4B21 /* UsagePing.swift */,
+				A1B2C3D4E5F60718293A4B41 /* UsageInsights.swift */,
+				A1B2C3D4E5F60718293A4B43 /* UsageTracking.swift */,
+				A1B2C3D4E5F60718293A4B45 /* GlobalHotKey.swift */,
+				A1B2C3D4E5F60718293A4B47 /* ChargeTimelineView.swift */,
 				A1B2C3D4E5F60718293A4B31 /* BatteryInsights.swift */,
 				A1B2C3D4E5F60718293A4B33 /* EnergyLedger.swift */,
 				A1B2C3D4E5F60718293A4B35 /* EnergyHistory.swift */,
@@ -229,6 +241,10 @@
 				19DDCF562E937CC99D866FDE /* PowerFlowView.swift in Sources */,
 				33EB1C16BBBA93D6871C4CEF /* SMCReader.swift in Sources */,
 				A1B2C3D4E5F60718293A4B22 /* UsagePing.swift in Sources */,
+				A1B2C3D4E5F60718293A4B42 /* UsageInsights.swift in Sources */,
+				A1B2C3D4E5F60718293A4B44 /* UsageTracking.swift in Sources */,
+				A1B2C3D4E5F60718293A4B46 /* GlobalHotKey.swift in Sources */,
+				A1B2C3D4E5F60718293A4B48 /* ChargeTimelineView.swift in Sources */,
 				A1B2C3D4E5F60718293A4B32 /* BatteryInsights.swift in Sources */,
 				A1B2C3D4E5F60718293A4B34 /* EnergyLedger.swift in Sources */,
 				A1B2C3D4E5F60718293A4B36 /* EnergyHistory.swift in Sources */,

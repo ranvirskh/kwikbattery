@@ -20,6 +20,7 @@ struct PowerElectricalView: View {
     @EnvironmentObject private var budget: AnimationBudget
     @AppStorage(SettingsKey.notifyWeakCharger) private var notifyWeakCharger = SettingsDefault.notifyWeakCharger
     @AppStorage(SettingsKey.slowChargingWatts) private var slowChargingWatts = SettingsDefault.slowChargingWatts
+    @ObservedObject private var sessions = DischargeSessionStore.shared
     let info: BatteryInfo
 
     private let green = Color(red: 0.26, green: 0.84, blue: 0.42)
@@ -231,6 +232,12 @@ struct PowerElectricalView: View {
             Text(workloadText)
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundStyle(Color.white.opacity(0.45))
+            if info.state == .discharging, let summary = sessions.summary(for: info) {
+                Text(DischargeSession.text(summary))
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.55))
+                    .monospacedDigit()
+            }
             if notifyWeakCharger,
                let check = ChargerCheck.evaluate(info, slowThreshold: slowChargingWatts) {
                 chargerCheckLine(check)

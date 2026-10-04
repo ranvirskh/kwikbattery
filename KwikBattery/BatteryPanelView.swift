@@ -26,6 +26,10 @@ struct BatteryPanelView: View {
     @State private var refreshSpin = 0.0
     @State private var confirmingUpdate = false
     @State private var showingHealthHistory = false
+    @State private var showingEnergyHistory = false
+    @State private var showingTimeline = false
+    @ObservedObject private var runTime = RunTimeStore.shared
+    @AppStorage(SettingsKey.smoothTimeEstimate) private var smoothTimeEstimate = SettingsDefault.smoothTimeEstimate
 
     let openSettings: () -> Void
 
@@ -39,8 +43,27 @@ struct BatteryPanelView: View {
             updateBanner
 
             if info.hasBattery {
-                heroCard
-                    .appearEffect()
+                Group {
+                    if showingTimeline {
+                        ChargeTimelineView {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                showingTimeline = false
+                            }
+                        }
+                        .transition(.opacity)
+                    } else {
+                        heroCard
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                    showingTimeline = true
+                                }
+                            }
+                            .help("Show charge over the last 24 hours")
+                            .transition(.opacity)
+                    }
+                }
+                .appearEffect()
 
                 PanelSection("Battery Information", icon: "info", tint: Color.blue,
                              isExpanded: $infoExpanded) {
@@ -66,11 +89,26 @@ struct BatteryPanelView: View {
                 .appearEffect(delay: 0.10)
 
                 PanelSection("Top Energy Users", icon: "flame.fill", tint: Color.pink,
-                             isExpanded: $energyExpanded) {
-                    energyUsers
-                        // Sampling runs `top`; don't pay for it when collapsed.
-                        .onAppear { energy.setActive(true) }
-                        .onDisappear { energy.setActive(false) }
+                             isExpanded: $energyExpanded,
+                             accessory: PanelSectionAccessory(
+                                systemName: showingEnergyHistory ? "flame" : "chart.bar.xaxis",
+                                help: showingEnergyHistory ? "Show live energy use" : "Show app energy over time",
+                                action: toggleEnergyHistory)) {
+                    if showingEnergyHistory {
+                        EnergyHistoryView {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                showingEnergyHistory = false
+                            }
+                        }
+                        .transition(.opacity)
+                    } else {
+                        energyUsers
+                            // Sampling runs `top`; don't pay for it when collapsed
+                            // or while the history is showing instead.
+                            .onAppear { energy.setActive(true) }
+                            .onDisappear { energy.setActive(false) }
+                            .transition(.opacity)
+                    }
                 }
                 .appearEffect(delay: 0.12)
             } else {
@@ -304,10 +342,16 @@ struct BatteryPanelView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(timeTitle)
-                        .font(PanelFont.eyebrow(8))
-                        .tracking(0.8)
-                        .foregroundStyle(Color.white.opacity(0.45))
+                    HStack(spacing: 3) {
+                        // Hint that the card opens the 24-hour timeline.
+                        Image(systemName: "chart.xyaxis.line")
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundStyle(Color.white.opacity(0.35))
+                        Text(timeTitle)
+                            .font(PanelFont.eyebrow(8))
+                            .tracking(0.8)
+                            .foregroundStyle(Color.white.opacity(0.45))
+                    }
                     Text(timeValue)
                         // "Calculating" needs more room than "29h 6m" does.
                         .font(PanelFont.title(timeValue.count > 7 ? 11 : 15))
@@ -435,6 +479,17 @@ struct BatteryPanelView: View {
     }
 
     // MARK: - Top energy users
+
+    private func toggleEnergyHistory() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            if !energyExpanded {
+                energyExpanded = true
+                showingEnergyHistory = true
+            } else {
+                showingEnergyHistory.toggle()
+            }
+        }
+    }
 
     @ViewBuilder
     private var energyUsers: some View {
@@ -608,7 +663,10 @@ struct BatteryPanelView: View {
         case .discharging:
             // nil here means macOS hasn't produced a figure yet, or produced one
             // the battery couldn't physically sustain (see isPlausibleRunTime).
-            return info.timeToEmptyMinutes.map { Format.duration(minutes: $0) } ?? "Calculating"
+            // With "Smoother time-remaining estimate" on, the trend-based figure
+            // replaces macOS's whenever it has enough data.
+            return runTime.timeToEmpty(for: info, smooth: smoothTimeEstimate)
+                .map { Format.duration(minutes: $0) } ?? "Calculating"
         case .full:        return "Full"
         case .notCharging: return "On AC"
         case .noBattery:   return "—"

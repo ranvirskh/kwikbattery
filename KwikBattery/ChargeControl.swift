@@ -60,6 +60,7 @@ final class ChargeControl: ObservableObject {
 
     private var loadedFromHelper = false
     private var timer: Timer?
+    private var defaultsObserver: AnyCancellable?
     private var pushTask: DispatchWorkItem?
     private let io = DispatchQueue(label: "com.kwikbattery.helper.client")
 
@@ -69,7 +70,25 @@ final class ChargeControl: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.poll() }
         }
+        // The helper pauses charging at the Hot battery alert's temperature, so
+        // a change to that slider is passed on.
+        defaultsObserver = NotificationCenter.default
+            .publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.syncHotLimit() }
     }
+
+    /// Keeps the helper's hot limit equal to Settings › Notifications › Hot battery alert.
+    private func syncHotLimit() {
+        guard loadedFromHelper else { return }
+        let limit = AppSettings.hotThreshold
+        guard limit.isFinite, abs(config.hotLimitCelsius - limit) > 0.01 else { return }
+        config.hotLimitCelsius = limit
+        pushConfig()
+    }
+
+    /// True when the helper is installed and will pause charging when the battery is hot.
+    var pausesWhenHot: Bool { reachable && config.pauseWhenHot }
 
     func poll() {
         io.async { [weak self] in
@@ -84,6 +103,7 @@ final class ChargeControl: ObservableObject {
         if let s, !loadedFromHelper {
             loadedFromHelper = true
             config = s.policy
+            syncHotLimit()
         }
     }
 

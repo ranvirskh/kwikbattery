@@ -4,6 +4,16 @@ Thanks for helping test. This takes about five minutes.
 
 ## 1. Install
 
+Open **Terminal**, paste this and press Return:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ranvirskh/kwikbattery/main/install.sh | bash
+```
+
+A battery icon with a percentage appears in the menu bar. Click it, then skip to step 2.
+
+If you'd rather not use Terminal:
+
 1. Download the latest `KwikBattery-x.y.zip` from [Releases](https://github.com/ranvirskh/kwikbattery/releases) and unzip it.
 2. Move **KwikBattery.app** to **Applications** and open it.
 3. macOS will warn that it can't verify the app. Go to **System Settings › Privacy & Security** and click **Open Anyway**.

@@ -11,6 +11,17 @@ import Foundation
 import Combine
 import UserNotifications
 
+/// Something that acts when the battery runs hot or cools down again.
+///
+/// Pausing charging itself is done by the charge-control helper, which reads
+/// the temperature on its own (ChargePolicy, rule 0) so it works even when the
+/// app isn't running. This hook stays for anything else that wants to react.
+@MainActor
+protocol HotBatteryResponder: AnyObject {
+    func batteryBecameHot(celsius: Double, threshold: Double)
+    func batteryCooledDown(celsius: Double, threshold: Double)
+}
+
 @MainActor
 final class NotificationManager: ObservableObject {
     static let shared = NotificationManager()
@@ -25,6 +36,18 @@ final class NotificationManager: ObservableObject {
     private var didNotifyLow = false
     private var didNotifySlow = false
     private var slowChargeStartedAt: Date?
+    private var hotGuard = HotBatteryGuard()
+    private var didNotifyWeakCharger = false
+    private var weakChargerStartedAt: Date?
+    private var didNotifyPaused = false
+    private var pausedStartedAt: Date?
+
+    /// See HotBatteryResponder. nil on this branch (alert only).
+    weak var hotBatteryResponder: HotBatteryResponder?
+    /// How long the battery must keep draining on AC before "can't keep up".
+    private let weakChargerGracePeriod: TimeInterval = 180
+    /// How long charging must stay paused before the (optional) notice.
+    private let pausedGracePeriod: TimeInterval = 120
 
     /// How long charging must stay below the watt threshold before we alert.
     private let slowChargeGracePeriod: TimeInterval = 180
@@ -64,6 +87,9 @@ final class NotificationManager: ObservableObject {
         checkLowBattery(info)
         checkHealth(info)
         checkSlowCharging(info)
+        checkHotBattery(info)
+        checkWeakCharger(info)
+        checkChargingPaused(info)
     }
 
     /// 1. Reached 100% while plugged in → "unplug now".
@@ -141,7 +167,92 @@ final class NotificationManager: ObservableObject {
         post(id: "slow", title: "Charging Slowly", body: body)
     }
 
+    /// 5. Battery temperature at or above the threshold. One alert per episode;
+    ///    re-arms once it has cooled 3 °C below the threshold.
+    private func checkHotBattery(_ info: BatteryInfo) {
+        let threshold = AppSettings.hotThreshold
+        guard let transition = hotGuard.update(celsius: info.temperatureCelsius, threshold: threshold),
+              let celsius = info.temperatureCelsius else { return }
+        switch transition {
+        case .becameHot:
+            hotBatteryResponder?.batteryBecameHot(celsius: celsius, threshold: threshold)
+            guard AppSettings.notifyHot else { return }
+            let fahrenheit = AppSettings.useFahrenheit
+            let limit = fahrenheit
+                ? String(format: "%.0f °F", threshold * 9.0 / 5.0 + 32.0)
+                : String(format: "%.0f °C", threshold)
+            post(id: "hot",
+                 title: "Battery Is Hot",
+                 body: "The battery is at \(Format.temperature(celsius: celsius, fahrenheit: fahrenheit)) "
+                     + "(alert at \(limit)). "
+                     + (ChargeControl.shared.pausesWhenHot
+                        ? "KwikBattery has paused charging until it cools down. "
+                        : "Heat wears batteries out faster. ")
+                     + "Give the Mac some air or lighten the load.")
+        case .cooledDown:
+            hotBatteryResponder?.batteryCooledDown(celsius: celsius, threshold: threshold)
+        }
+    }
+
+    /// 6. Plugged in, yet the battery has been draining for 3+ minutes: the Mac
+    ///    is drawing more than the charger delivers.
+    private func checkWeakCharger(_ info: BatteryInfo) {
+        guard info.isPluggedIn else {
+            weakChargerStartedAt = nil
+            didNotifyWeakCharger = false
+            return
+        }
+        guard AppSettings.notifyWeakCharger, ChargerCheck.adapterCannotKeepUp(info) else {
+            weakChargerStartedAt = nil
+            return
+        }
+        let start = weakChargerStartedAt ?? Date()
+        weakChargerStartedAt = start
+        guard !didNotifyWeakCharger, Date().timeIntervalSince(start) >= weakChargerGracePeriod else { return }
+        didNotifyWeakCharger = true
+
+        let load = info.systemLoadWatts.map { String(format: "%.0f W", $0) } ?? "more than it gets"
+        var body: String
+        if let adapter = info.adapterWatts {
+            body = "The Mac is using \(load) but the \(adapter) W adapter can't keep up, so the battery is draining while plugged in."
+        } else if let input = info.inputWatts {
+            body = "The Mac is using \(load) but the charger is only supplying \(String(format: "%.0f W", input)), so the battery is draining while plugged in."
+        } else {
+            body = "The Mac is using \(load) and the battery is draining while plugged in."
+        }
+        body += " Use a higher-wattage charger or a better cable, or lighten the load."
+        post(id: "weak-charger", title: "Charger Can't Keep Up", body: body)
+    }
+
+    /// 7. Optional: plugged in but charging has been paused for 2+ minutes.
+    ///    Once per plug-in; skipped when the battery is simply full.
+    private func checkChargingPaused(_ info: BatteryInfo) {
+        guard info.isPluggedIn else {
+            pausedStartedAt = nil
+            didNotifyPaused = false
+            return
+        }
+        // KwikBattery's own helper holding the charge isn't news.
+        let helperHolding = ChargeControl.shared.reachable && ChargeControl.shared.status?.mode != .normal
+        guard AppSettings.notifyChargingPaused, info.state == .notCharging,
+              !info.isFullyCharged, info.percentage < 98, !helperHolding else {
+            pausedStartedAt = nil
+            return
+        }
+        let start = pausedStartedAt ?? Date()
+        pausedStartedAt = start
+        guard !didNotifyPaused, Date().timeIntervalSince(start) >= pausedGracePeriod else { return }
+        didNotifyPaused = true
+        post(id: "paused", title: "Charging Paused at \(info.percentage)%", body: info.holdReason + ".")
+    }
+
     // MARK: - Posting
+
+    /// For alerts raised elsewhere (sleep drain, Bluetooth devices). Same
+    /// delivery as the built-in ones; the caller owns the once-per-episode rule.
+    func deliver(id: String, title: String, body: String) {
+        post(id: id, title: title, body: body)
+    }
 
     func sendTestNotification() {
         post(id: "test-\(UUID().uuidString)",

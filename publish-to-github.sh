@@ -68,9 +68,21 @@ echo "==> Building the universal release"
 bash build.sh --release
 ZIP="release/KwikBattery-$VERSION.zip"
 
-NOTES="Free menu bar battery monitor for macOS 14 Sonoma or later. Universal build — Apple silicon and Intel.
+NOTES="## Install in one step (recommended)
+
+Open **Terminal** (press ⌘-Space, type *Terminal*, press Return), paste this and press Return:
+
+\`\`\`
+curl -fsSL https://raw.githubusercontent.com/$OWNER/$REPO_NAME/main/install.sh | bash
+\`\`\`
+
+It downloads, installs and opens KwikBattery with no security prompts, and sets up iPhone and iPad battery levels. If your Mac has no Homebrew yet, it installs it and asks for your Mac password once. Run it again any time to update.
+
+Free menu bar battery monitor for macOS 14 Sonoma or later. Universal build — Apple silicon and Intel.
 
 ## How to install
+
+Prefer not to use Terminal? Download it yourself:
 
 **1.** Download **KwikBattery-$VERSION.zip** below. Safari unzips it automatically; in Chrome or Firefox, double-click the .zip in your Downloads folder.
 

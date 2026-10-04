@@ -18,6 +18,8 @@ import SwiftUI
 
 struct PowerElectricalView: View {
     @EnvironmentObject private var budget: AnimationBudget
+    @AppStorage(SettingsKey.notifyWeakCharger) private var notifyWeakCharger = SettingsDefault.notifyWeakCharger
+    @AppStorage(SettingsKey.slowChargingWatts) private var slowChargingWatts = SettingsDefault.slowChargingWatts
     let info: BatteryInfo
 
     private let green = Color(red: 0.26, green: 0.84, blue: 0.42)
@@ -229,8 +231,36 @@ struct PowerElectricalView: View {
             Text(workloadText)
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundStyle(Color.white.opacity(0.45))
+            if notifyWeakCharger,
+               let check = ChargerCheck.evaluate(info, slowThreshold: slowChargingWatts) {
+                chargerCheckLine(check)
+            }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// "Charger check: OK / Weak adapter / Charging slowly" while plugged in.
+    private func chargerCheckLine(_ check: ChargerCheck) -> some View {
+        let tint: Color = check == .ok ? green : Color.orange
+        return HStack(spacing: 4) {
+            Image(systemName: check == .ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .font(.system(size: 9, weight: .bold))
+            Text("Charger check: \(check.label)")
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+        }
+        .foregroundStyle(tint.opacity(0.9))
+        .help(chargerCheckHelp(check))
+    }
+
+    private func chargerCheckHelp(_ check: ChargerCheck) -> String {
+        switch check {
+        case .ok:
+            return "The charger is keeping up with the Mac."
+        case .weakAdapter:
+            return "The Mac is drawing more than the charger delivers, so the battery is draining while plugged in."
+        case .chargingSlowly:
+            return "The battery is charging below your slow-charging threshold. Check the cable and adapter."
+        }
     }
 
     @ViewBuilder

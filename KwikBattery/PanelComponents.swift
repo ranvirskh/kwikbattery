@@ -34,52 +34,106 @@ extension Image {
 
 // MARK: - Collapsible section card
 
+/// An extra button in a section header, beside the collapse chevron.
+struct PanelSectionAccessory {
+    let systemName: String
+    let help: String
+    let action: () -> Void
+}
+
 struct PanelSection<Content: View>: View {
     let title: String
     let icon: String
     let tint: Color
     @Binding var isExpanded: Bool
+    let accessory: PanelSectionAccessory?
     let content: () -> Content
 
     init(_ title: String,
          icon: String,
          tint: Color,
          isExpanded: Binding<Bool>,
+         accessory: PanelSectionAccessory? = nil,
          @ViewBuilder content: @escaping () -> Content) {
         self.title = title
         self.icon = icon
         self.tint = tint
         self._isExpanded = isExpanded
+        self.accessory = accessory
         self.content = content
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            Button {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
-                    isExpanded.toggle()
+    private func toggle() {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+            isExpanded.toggle()
+        }
+    }
+
+    private var titleLabel: some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(Color.white)
+                .frame(width: 18, height: 18)
+                .background(Circle().fill(tint.gradient))
+            Text(title)
+                .font(PanelFont.title(12))
+                .foregroundStyle(Color.white.opacity(0.92))
+            Spacer()
+        }
+    }
+
+    private var chevron: some View {
+        Image(systemName: "chevron.up")
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(Color.white.opacity(0.45))
+            .rotationEffect(.degrees(isExpanded ? 0 : 180))
+    }
+
+    @ViewBuilder
+    private var header: some View {
+        if let accessory {
+            // A button can't sit inside another button's label and still get
+            // clicks, so the header becomes title/chevron buttons around it.
+            HStack(spacing: 8) {
+                Button(action: toggle) {
+                    titleLabel.contentShape(Rectangle())
                 }
-            } label: {
+                .buttonStyle(.plain)
+                Button(action: accessory.action) {
+                    Image(systemName: accessory.systemName)
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundStyle(tint.opacity(0.9))
+                        .frame(width: 20, height: 18)
+                        .background(Capsule().fill(Color.white.opacity(0.07)))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(accessory.help)
+                Button(action: toggle) {
+                    chevron.contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+        } else {
+            Button(action: toggle) {
                 HStack(spacing: 9) {
-                    Image(systemName: icon)
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(Color.white)
-                        .frame(width: 18, height: 18)
-                        .background(Circle().fill(tint.gradient))
-                    Text(title)
-                        .font(PanelFont.title(12))
-                        .foregroundStyle(Color.white.opacity(0.92))
-                    Spacer()
-                    Image(systemName: "chevron.up")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.45))
-                        .rotationEffect(.degrees(isExpanded ? 0 : 180))
+                    titleLabel
+                    chevron
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
 
             if isExpanded {
                 Rectangle()

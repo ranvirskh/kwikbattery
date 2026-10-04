@@ -32,6 +32,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         .environmentObject(AnimationBudget.shared)
         .environmentObject(UpdateChecker.shared)
         .environmentObject(HealthHistory.shared)
+        .environmentObject(EnergyHistory.shared)
         .environment(\.colorScheme, .dark)
 
         let hosting = NSHostingController(rootView: panel)
@@ -47,6 +48,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             button.target = self
             button.action = #selector(togglePopover(_:))
             button.imagePosition = .imageOnly
+            // Tabular digits, so " 2h 30m" doesn't jiggle the menu bar as it counts.
+            button.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
         }
 
         // Redraw when battery info changes OR when a setting changes
@@ -56,10 +59,12 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             .map { _ in true }
             .prepend(true)
 
+        // The smoothed run time is published separately, so the "Time left"
+        // menu bar text also follows it.
         monitor.$info
-            .combineLatest(settingsChanged)
+            .combineLatest(settingsChanged, RunTimeStore.shared.$smoothedMinutes)
             .receive(on: RunLoop.main)
-            .sink { [weak self] info, _ in
+            .sink { [weak self] info, _, _ in
                 self?.updateButton(with: info)
             }
             .store(in: &cancellables)
@@ -104,6 +109,14 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private func updateButton(with info: BatteryInfo) {
         guard let button = statusItem.button else { return }
 
+        // Optional text next to the icon. Set BEFORE the icon cache check below:
+        // the text changes (time left, watts) far more often than the icon does.
+        let text = menuBarText(for: info)
+        if button.title != text {
+            button.title = text
+            button.imagePosition = text.isEmpty ? .imageOnly : .imageLeft
+        }
+
         // The icon only depends on these three things; re-rendering it for an
         // unchanged reading is pure waste (we refresh far more often than the
         // percentage actually moves).
@@ -124,8 +137,15 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             image?.isTemplate = true
             button.image = image
         }
-        button.title = ""
         button.toolTip = tooltip(for: info)
+    }
+
+    private func menuBarText(for info: BatteryInfo) -> String {
+        let mode = AppSettings.menuBarText
+        guard info.hasBattery, mode != .none else { return "" }
+        let minutes = RunTimeStore.shared.menuBarMinutes(for: info, smooth: AppSettings.smoothTimeEstimate)
+        return MenuBarText.text(mode: mode, percentage: info.percentage,
+                                minutes: minutes, watts: info.batteryWatts)
     }
 
     private func iconTint(for info: BatteryInfo) -> NSColor {

@@ -2,68 +2,19 @@
 
 A free, native macOS menu bar app for your battery and power. Every feature is included: no paywalls, subscriptions or accounts, and no tracking of you.
 
-## Features
+## Install
 
-- **Menu bar battery icon.** The percentage sits inside the icon, and the fill moves in 10% steps. It's green above 20%, orange from 20% down to 10% and red below 10%, and it stays green while charging.
-- **Live dropdown.** Readings refresh every second while the dropdown is open.
-  - **Battery information:** health, cycle count, temperature in °C and °F, capacity and adapter. A service warning appears only when the battery needs attention.
-  - **Power & Electrical:**
-    - Power usage, voltage and current, with a voltage check.
-    - An animated power-flow diagram: charger → battery, MacBook and the connected devices your Mac is powering over USB-C.
-  - **Connected devices:**
-    - AirPods (left, right and case), Magic Mouse, Keyboard and Trackpad, other Bluetooth accessories, and USB-powered devices with their live wattage.
-    - iPhone and iPad battery levels if the optional libimobiledevice tool is installed (see Optional).
-- **App energy over time.** Tap the chart icon on **Top Energy Users** to see which apps used the most battery today, over 7 days and over 30 days, in watt-hours and as a share of everything the Mac used. KwikBattery samples every 5 minutes (15 in Low Power Mode), only while you're on battery. The figures are approximate, because macOS's Energy Impact score is spread over the Mac's measured power. You can switch this off or reset it in Settings.
-- **Notifications.** Alerts for 100% while plugged in, low battery, low battery health and slow charging. You set every threshold.
-  - **Hot battery** (on by default): an alert when the battery reaches 40 °C, or whatever threshold you set between 30 and 50 °C. It fires once and re-arms after the battery cools 3 °C. It only alerts: it doesn't pause charging.
-  - **Charger can't keep up** (on by default): an alert when the Mac is plugged in but the battery has drained for 3 minutes, because the Mac draws more than the adapter supplies. A **Charger check** line under Power & Electrical reads OK, Weak adapter or Charging slowly.
-  - **Charging paused** (off by default): a notice, with the reason, when macOS has held the charge for 2 minutes while plugged in.
-- **Charge timeline.** Tap the big percentage to see the charge level over the last 24 hours, with time spent plugged in shaded, plus the lowest and highest level and the last sleep.
-- **Sleep drain report.** After at least 30 minutes asleep on battery, KwikBattery notes how much charge was lost (for example "Lost 3% while asleep for 7h 0m (0.4%/h)"). It alerts you (on by default) when the loss is 3 points or more and faster than your threshold (1.5%/h by default).
-- **Since unplugged.** On battery, Power & Electrical shows the time since you unplugged, the charge used and the average watts.
-- **Low battery alerts for your devices** (on by default): AirPods, mice, keyboards and other Bluetooth accessories, at 20% or a level you choose. Each device alerts once, then re-arms after charging. iPhones are left to their own alerts.
-- **Keyboard shortcut** (off by default): open the panel from any app with ⌃⌥B, ⌥⌘B or ⌃⌥⌘B. No extra permissions are needed.
-- **Export history as CSV** from Settings: health, app energy and charge history, for Numbers or Excel.
-- **Menu bar text** (off by default): percent, time left or battery watts next to the icon.
-- **Smoother time-remaining estimate** (off by default): time left from how fast the percentage has fallen over the last 45 minutes, instead of the momentary draw. Until there's enough data, macOS's own figure is shown.
-- **Settings.** Launch at login, percentage on or off, and °C or °F.
+### Recommended: one line in Terminal
 
-## Command line and Shortcuts
-
-`--status` prints a JSON snapshot of the battery and exits. It doesn't open the app or disturb a copy that's already running:
+Open **Terminal** (press ⌘-Space, type *Terminal*, press Return), paste this and press Return:
 
 ```bash
-~/Applications/KwikBattery.app/Contents/MacOS/KwikBattery --status
+curl -fsSL https://raw.githubusercontent.com/ranvirskh/kwikbattery/main/install.sh | bash
 ```
 
-(Use `/Applications/...` if you installed the app there.)
+It downloads the latest release, checks its signature, puts it in Applications, sets up iPhone and iPad battery levels and opens it. There are no Gatekeeper steps, because a file downloaded with Terminal isn't quarantined the way a browser download is. Run the same line again any time to update. You can read [install.sh](install.sh) first if you like.
 
-```json
-{
-  "adapterWatts" : 87,
-  "batteryWatts" : 58.04,
-  "charging" : true,
-  "cycles" : 120,
-  "healthPercent" : 90,
-  "inputWatts" : 86.04,
-  "percent" : 68,
-  "pluggedIn" : true,
-  "state" : "charging",
-  "systemLoadWatts" : 28,
-  "temperatureC" : 31.2,
-  "timeToEmptyMinutes" : null,
-  "timeToFullMinutes" : 52,
-  "voltage" : 12.55
-}
-```
-
-`state` is one of `charging`, `discharging`, `full`, `notCharging` or `noBattery`. Anything the Mac doesn't report is `null`. `batteryWatts` is positive while charging and negative on battery. The time estimates are macOS's own; the smoothed estimate needs the running app's history.
-
-In the terminal, pipe it to `jq`, for example `... --status | jq .percent`.
-
-In **Shortcuts**, add a **Run Shell Script** action with the command above, then a **Get Dictionary from Input** action. Use **Get Dictionary Value** to pull out `percent`, `state` or any other key, and use it in an If, a notification or a log.
-
-## Install
+### Other way: download it yourself
 
 **1. Download it.**
 Go to the [Releases](https://github.com/ranvirskh/kwikbattery/releases) page and
@@ -125,7 +76,9 @@ word for it.
 Requires macOS 14 Sonoma or later. Works on Apple silicon and Intel Macs.
 Detailed power-flow data is available on Apple silicon only.
 
-### Optional: iPhone and iPad battery levels
+### iPhone and iPad battery levels
+
+The Terminal installer sets this up for you. It installs `libimobiledevice` with Homebrew, installing Homebrew first if your Mac has none, which asks for your Mac password once. If you installed by downloading the zip instead, run:
 
 ```bash
 brew install libimobiledevice
@@ -143,6 +96,67 @@ KwikBattery shows a reminder with an **Open** button in Connected Devices when t
 is the likely reason your phone is missing. Your iPhone must also be on the same
 Wi-Fi network, unlocked for the first read, and paired with this Mac — plug it in
 once and tap **Trust**. In Finder, tick "Show this iPhone when on Wi-Fi".
+
+## Features
+
+- **Menu bar battery icon.** The percentage sits inside the icon, and the fill moves in 10% steps. It's green above 20%, orange from 20% down to 10% and red below 10%, and it stays green while charging.
+- **Live dropdown.** Readings refresh every second while the dropdown is open.
+  - **Battery information:** health, cycle count, temperature in °C and °F, capacity and adapter. A service warning appears only when the battery needs attention.
+  - **Power & Electrical:**
+    - Power usage, voltage and current, with a voltage check.
+    - An animated power-flow diagram: charger → battery, MacBook and the connected devices your Mac is powering over USB-C.
+  - **Connected devices:**
+    - AirPods (left, right and case), Magic Mouse, Keyboard and Trackpad, other Bluetooth accessories, and USB-powered devices with their live wattage.
+    - iPhone and iPad battery levels if the optional libimobiledevice tool is installed (see Optional).
+- **App energy over time.** Tap the chart icon on **Top Energy Users** to see which apps used the most battery today, over 7 days and over 30 days, in watt-hours and as a share of everything the Mac used. KwikBattery samples every 5 minutes (15 in Low Power Mode), only while you're on battery. The figures are approximate, because macOS's Energy Impact score is spread over the Mac's measured power. You can switch this off or reset it in Settings.
+- **Notifications.** Alerts for 100% while plugged in, low battery, low battery health and slow charging. You set every threshold.
+  - **Hot battery** (on by default): an alert when the battery reaches 40 °C, or whatever threshold you set between 30 and 50 °C. It fires once and re-arms after the battery cools 3 °C. It only alerts: it doesn't pause charging.
+  - **Charger can't keep up** (on by default): an alert when the Mac is plugged in but the battery has drained for 3 minutes, because the Mac draws more than the adapter supplies. A **Charger check** line under Power & Electrical reads OK, Weak adapter or Charging slowly.
+  - **Charging paused** (off by default): a notice, with the reason, when macOS has held the charge for 2 minutes while plugged in.
+- **Charge timeline.** Tap the big percentage to see the charge level over the last 24 hours, with time spent plugged in shaded, plus the lowest and highest level and the last sleep.
+- **Sleep drain report.** After at least 30 minutes asleep on battery, KwikBattery notes how much charge was lost (for example "Lost 3% while asleep for 7h 0m (0.4%/h)"). It alerts you (on by default) when the loss is 3 points or more and faster than your threshold (1.5%/h by default).
+- **Since unplugged.** On battery, Power & Electrical shows the time since you unplugged, the charge used and the average watts.
+- **Low battery alerts for your devices** (on by default): AirPods, mice, keyboards and other Bluetooth accessories, at 20% or a level you choose. Each device alerts once, then re-arms after charging. iPhones are left to their own alerts.
+- **Keyboard shortcut** (off by default): open the panel from any app with ⌃⌥B, ⌥⌘B or ⌃⌥⌘B. No extra permissions are needed.
+- **Export history as CSV** from Settings: health, app energy and charge history, for Numbers or Excel.
+- **Menu bar text** (off by default): percent, time left or battery watts next to the icon.
+- **Smoother time-remaining estimate** (off by default): time left from how fast the percentage has fallen over the last 45 minutes, instead of the momentary draw. Until there's enough data, macOS's own figure is shown.
+- **Settings.** Launch at login, percentage on or off, and °C or °F.
+
+## Command line and Shortcuts
+
+`--status` prints a JSON snapshot of the battery and exits. It doesn't open the app or disturb a copy that's already running:
+
+```bash
+~/Applications/KwikBattery.app/Contents/MacOS/KwikBattery --status
+```
+
+(Use `/Applications/...` if you installed the app there.)
+
+```json
+{
+  "adapterWatts" : 87,
+  "batteryWatts" : 58.04,
+  "charging" : true,
+  "cycles" : 120,
+  "healthPercent" : 90,
+  "inputWatts" : 86.04,
+  "percent" : 68,
+  "pluggedIn" : true,
+  "state" : "charging",
+  "systemLoadWatts" : 28,
+  "temperatureC" : 31.2,
+  "timeToEmptyMinutes" : null,
+  "timeToFullMinutes" : 52,
+  "voltage" : 12.55
+}
+```
+
+`state` is one of `charging`, `discharging`, `full`, `notCharging` or `noBattery`. Anything the Mac doesn't report is `null`. `batteryWatts` is positive while charging and negative on battery. The time estimates are macOS's own; the smoothed estimate needs the running app's history.
+
+In the terminal, pipe it to `jq`, for example `... --status | jq .percent`.
+
+In **Shortcuts**, add a **Run Shell Script** action with the command above, then a **Get Dictionary from Input** action. Use **Get Dictionary Value** to pull out `percent`, `state` or any other key, and use it in an If, a notification or a log.
 
 ## Help test
 

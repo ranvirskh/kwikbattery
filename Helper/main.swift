@@ -310,12 +310,16 @@ final class Controller {
     /// Called before sleep: never sleep with the adapter off.
     func prepareForSleep() {
         sleeping = true
-        if let a = adapterSwitch { _ = smc.set(a, on: false) }
+        if let a = adapterSwitch {
+            let ok = smc.set(a, on: false)
+            NSLog("kwikbatteryd: system will sleep; adapter switched back on: \(ok)")
+        }
         adapterOffWanted = false
     }
 
     func didWake() {
         sleeping = false
+        NSLog("kwikbatteryd: system woke; re-applying the charge policy")
         tick()
     }
 

@@ -296,7 +296,14 @@ struct HelperRequest: Codable {
 }
 
 struct HelperStatus: Codable {
-    var version = 1
+    /// Bump whenever the helper gains behaviour the app relies on. The app
+    /// offers "Update Helper…" when an installed helper reports less, because
+    /// the in-app updater replaces the app but not the root helper.
+    ///   1  charge limit, discharge, top-ups (first release)
+    ///   2  pause charging when hot; reports temperature and hotPaused
+    static let currentVersion = 2
+
+    var version = HelperStatus.currentVersion
     var percent: Int?
     var pluggedIn = false
     var lidClosed = false

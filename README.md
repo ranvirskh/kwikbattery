@@ -170,6 +170,8 @@ Settings → **Charge control** adds five things:
 
 Only an administrator can tell the battery to stop charging, so this uses a small root helper (`kwikbatteryd`, a LaunchDaemon) installed on request: press **Install Helper…** in Settings, or run `sudo bash install-helper.sh`. The app itself never writes to the SMC and everything else works without the helper. Remove it any time with **Remove Helper…** or `sudo bash uninstall-helper.sh`.
 
+App updates replace the app but not the helper. When an update needs a newer helper, Settings → Charge control shows **Update Helper…**.
+
 Safeguards: the helper restores normal charging when it starts, stops, receives SIGTERM, or before every sleep; every SMC write is read back and, if the value doesn't stick, charge control pauses itself and says why; keys that don't exist on your Mac are never touched; settings are clamped to safe ranges. To check what your Mac supports without changing anything, run `/Library/PrivilegedHelperTools/kwikbatteryd --probe` (or `bash build.sh` and look at the SMC check). If anything ever looks wrong: `sudo /Library/PrivilegedHelperTools/kwikbatteryd --restore`.
 
 The SMC switches used are `CHTE` / `CH0B`+`CH0C` (inhibit charging) and `CHIE` / `CH0I` (adapter off). Apple doesn't document them and they have changed between macOS releases, so please report what `--probe` prints on your Mac.

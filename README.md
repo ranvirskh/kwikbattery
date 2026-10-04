@@ -18,6 +18,12 @@ A free, native macOS menu bar app for your battery and power. Every feature is i
   - **Hot battery** (on by default): an alert when the battery reaches 40 °C, or whatever threshold you set between 30 and 50 °C. It fires once and re-arms after the battery cools 3 °C. It only alerts: it doesn't pause charging.
   - **Charger can't keep up** (on by default): an alert when the Mac is plugged in but the battery has drained for 3 minutes, because the Mac draws more than the adapter supplies. A **Charger check** line under Power & Electrical reads OK, Weak adapter or Charging slowly.
   - **Charging paused** (off by default): a notice, with the reason, when macOS has held the charge for 2 minutes while plugged in.
+- **Charge timeline.** Tap the big percentage to see the charge level over the last 24 hours, with time spent plugged in shaded, plus the lowest and highest level and the last sleep.
+- **Sleep drain report.** After at least 30 minutes asleep on battery, KwikBattery notes how much charge was lost (for example "Lost 3% while asleep for 7h 0m (0.4%/h)"). It alerts you (on by default) when the loss is 3 points or more and faster than your threshold (1.5%/h by default).
+- **Since unplugged.** On battery, Power & Electrical shows the time since you unplugged, the charge used and the average watts.
+- **Low battery alerts for your devices** (on by default): AirPods, mice, keyboards and other Bluetooth accessories, at 20% or a level you choose. Each device alerts once, then re-arms after charging. iPhones are left to their own alerts.
+- **Keyboard shortcut** (off by default): open the panel from any app with ⌃⌥B, ⌥⌘B or ⌃⌥⌘B. No extra permissions are needed.
+- **Export history as CSV** from Settings: health, app energy and charge history, for Numbers or Excel.
 - **Menu bar text** (off by default): percent, time left or battery watts next to the icon.
 - **Smoother time-remaining estimate** (off by default): time left from how fast the percentage has fallen over the last 45 minutes, instead of the momentary draw. Until there's enough data, macOS's own figure is shown.
 - **Settings.** Launch at login, percentage on or off, and °C or °F.
@@ -176,9 +182,9 @@ If you do have Xcode, you can also open `KwikBattery.xcodeproj` and press ⌘R.
 - **Bluetooth levels:** `system_profiler SPBluetoothDataType` and HID battery properties.
 - **App Sandbox:** turned off so the app can run the tools above. It needs no special entitlements and makes no network requests apart from the update check and the optional usage count described below.
 
-## Privacy: energy history stays on your Mac
+## Privacy: histories stay on your Mac
 
-App energy history is saved only in `~/Library/Application Support/KwikBattery/energy-history.json`, with up to 35 days kept. It's never uploaded or sent anywhere. Turn it off with **Settings → General → Track app energy over time**, and delete it with **Reset energy history…** in the same place.
+App energy history is saved only in `~/Library/Application Support/KwikBattery/energy-history.json`, with up to 35 days kept. The 48-hour charge timeline is in `charge-history.json` in the same folder. It's never uploaded or sent anywhere. Turn it off with **Settings → General → Track app energy over time**, and delete it with **Reset energy history…** in the same place.
 
 ## Privacy: anonymous usage count
 

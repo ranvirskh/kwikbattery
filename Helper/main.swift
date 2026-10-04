@@ -265,6 +265,8 @@ final class Controller {
     private var adapterOffWanted = false
     private var sleeping = false
     private var broken: String?
+    /// Test hook (simulateHeat): a minimum temperature until `expires`.
+    private var simulatedHeat: (celsius: Double, expires: Date)?
 
     init() {
         chargeSwitch = Candidates.firstAvailable(Candidates.chargeInhibit, in: smc)
@@ -310,9 +312,13 @@ final class Controller {
     /// Called before sleep: never sleep with the adapter off.
     func prepareForSleep() {
         sleeping = true
+        status.lastSleepAt = Date()
         if let a = adapterSwitch {
             let ok = smc.set(a, on: false)
+            status.lastSleepAdapterOn = ok
             NSLog("kwikbatteryd: system will sleep; adapter switched back on: \(ok)")
+        } else {
+            status.lastSleepAdapterOn = nil
         }
         adapterOffWanted = false
     }
@@ -390,7 +396,14 @@ final class Controller {
         }
         let lid = Sensors.lidClosed()
         let pluggedIn = reading.onAC || adapterOffWanted
-        let temperature = smc.batteryTemperature()
+        var temperature = smc.batteryTemperature()
+        if let sim = simulatedHeat {
+            if Date() < sim.expires {
+                temperature = max(temperature ?? sim.celsius, sim.celsius)
+            } else {
+                simulatedHeat = nil
+            }
+        }
         let decision = engine.decide(PolicyInput(percent: reading.percent, pluggedIn: pluggedIn,
                                                  lidClosed: lid, now: Date(), temperatureC: temperature))
         apply(decision.mode, lidClosed: lid)
@@ -404,6 +417,7 @@ final class Controller {
         status.topUpActive = decision.topUpActive
         status.hotPaused = broken == nil ? decision.hotPaused : false
         status.temperatureC = temperature
+        status.simulatedHeat = simulatedHeat == nil ? nil : true
         status.error = broken
         status.emulatedHold = (chargeSwitch == nil && adapterSwitch != nil) ? true : nil
         status.policy = engine.config
@@ -424,6 +438,12 @@ final class Controller {
             engine.startTopUp(target: req.target ?? 100, now: Date())
         case "cancelTopUp":
             engine.cancelTopUp()
+        case "simulateHeat":
+            if let t = req.temperature, t.isFinite, t > 0 {
+                simulatedHeat = (min(t, 90), Date().addingTimeInterval(120))
+            } else {
+                simulatedHeat = nil
+            }
         case "restore":
             restoreNormal()
         default:

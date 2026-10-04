@@ -289,10 +289,14 @@ struct PolicyEngine {
 // MARK: - App ⇄ helper messages
 
 struct HelperRequest: Codable {
-    /// "status", "setPolicy", "topUpNow", "cancelTopUp", "restore"
+    /// "status", "setPolicy", "topUpNow", "cancelTopUp", "restore", "simulateHeat"
     var cmd: String
     var policy: ChargePolicyConfig?
     var target: Int?
+    /// simulateHeat: pretend the battery is at least this hot for 2 minutes
+    /// (0 or nil clears it). It can only ever raise the reading, so at worst it
+    /// pauses charging early; it can never hide a real hot battery.
+    var temperature: Double?
 }
 
 struct HelperStatus: Codable {
@@ -319,6 +323,12 @@ struct HelperStatus: Codable {
     var adapterKey: String?
     /// True when this Mac has no "inhibit charging" key and the limit is held by cycling the adapter.
     var emulatedHold: Bool?
+    /// When the helper last prepared for sleep, and whether the adapter was
+    /// confirmed back on (nil = no adapter switch on this Mac).
+    var lastSleepAt: Date?
+    var lastSleepAdapterOn: Bool?
+    /// True while a simulateHeat test value is raising the temperature.
+    var simulatedHeat: Bool?
     var error: String?
     var policy = ChargePolicyConfig()
 }

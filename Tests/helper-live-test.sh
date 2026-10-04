@@ -81,40 +81,61 @@ wait_for source_state 20 "Battery Power" && ok "running from the battery while p
 policy '{"enabled":false,"pauseWhenHot":false}' >/dev/null
 wait_for source_state 20 "AC Power" && ok "adapter back on" || bad "source = $(source_state)"
 
-say "4. Pause charging when hot (limit dropped to 30 °C so it triggers now)"
-S="$(policy '{"enabled":false,"pauseWhenHot":true,"hotLimitCelsius":30}')"
-T="$(field "$S" temperatureC)"
-if [[ -z "$T" ]]; then
-  bad "the helper can't read the battery temperature"
-elif [[ "$(field "$S" hotPaused)" == "true" && "$(field "$S" mode)" == "hold" ]]; then
-  ok "paused at ${T} °C ($(field "$S" reason))"
-  [[ "$(field "$S" emulatedHold)" == "true" ]] && { wait_for source_state 20 "Battery Power" && ok "charging stopped (adapter off)" || bad "source = $(source_state)"; }
+say "4. Pause charging when hot (the helper is told the battery is 42 °C for this step)"
+policy '{"enabled":false,"pauseWhenHot":true,"hotLimitCelsius":40}' >/dev/null
+S="$(send '{"cmd":"simulateHeat","temperature":42}')"
+if [[ "$(field "$S" hotPaused)" == "true" && "$(field "$S" mode)" == "hold" ]]; then
+  ok "paused at $(field "$S" temperatureC) °C ($(field "$S" reason))"
+  if [[ "$(field "$S" emulatedHold)" == "true" ]]; then
+    wait_for source_state 20 "Battery Power" && ok "charging stopped (adapter off)" || bad "source = $(source_state)"
+  fi
 else
-  bad "not paused at ${T} °C: mode=$(field "$S" mode) hotPaused=$(field "$S" hotPaused)"
+  bad "not paused: mode=$(field "$S" mode) hotPaused=$(field "$S" hotPaused) temp=$(field "$S" temperatureC)"
 fi
-S="$(policy '{"enabled":false,"pauseWhenHot":true,"hotLimitCelsius":50}')"
-[[ "$(field "$S" mode)" == "normal" && "$(field "$S" hotPaused)" != "true" ]] && ok "limit raised to 50 °C: charging resumes" || bad "mode=$(field "$S" mode) hotPaused=$(field "$S" hotPaused)"
+S="$(send '{"cmd":"simulateHeat","temperature":0}')"
+REAL="$(field "$S" temperatureC)"
+if [[ "$(field "$S" mode)" == "normal" && "$(field "$S" hotPaused)" != "true" ]]; then
+  ok "back to the real ${REAL} °C: charging resumes"
+else
+  bad "still paused at ${REAL} °C: mode=$(field "$S" mode)"
+fi
 wait_for source_state 20 "AC Power" && ok "back on AC power" || bad "source = $(source_state)"
+S="$(policy '{"enabled":false,"pauseWhenHot":false}')"
+S="$(send '{"cmd":"simulateHeat","temperature":45}')"
+[[ "$(field "$S" mode)" == "normal" ]] && ok "with pause-when-hot off, 45 °C doesn't pause" || bad "mode=$(field "$S" mode)"
+send '{"cmd":"simulateHeat","temperature":0}' >/dev/null
 
 say "5. Top up past the limit"
+P="$(percent)"
+LIMIT=$(( P - 2 ))
 policy "{\"enabled\":true,\"limit\":$LIMIT,\"pauseWhenHot\":false}" >/dev/null
 S="$(send '{"cmd":"topUpNow","target":100}')"
-[[ "$(field "$S" topUpActive)" == "true" && "$(field "$S" mode)" == "normal" ]] && ok "topping up: $(field "$S" reason)" || bad "mode=$(field "$S" mode) topUp=$(field "$S" topUpActive)"
+if (( P >= 100 )); then
+  [[ "$(field "$S" topUpActive)" != "true" && "$(field "$S" mode)" == "hold" ]] \
+    && ok "already at 100%: the top-up finishes at once and the limit holds" \
+    || bad "at 100%: mode=$(field "$S" mode) topUp=$(field "$S" topUpActive)"
+else
+  [[ "$(field "$S" topUpActive)" == "true" && "$(field "$S" mode)" == "normal" ]] \
+    && ok "topping up: $(field "$S" reason)" || bad "mode=$(field "$S" mode) topUp=$(field "$S" topUpActive)"
+fi
 S="$(send '{"cmd":"cancelTopUp"}')"
 [[ "$(field "$S" topUpActive)" != "true" && "$(field "$S" mode)" == "hold" ]] && ok "cancelled: back to holding" || bad "mode=$(field "$S" mode) topUp=$(field "$S" topUpActive)"
 
 if [[ "${1:-}" == "--sleep" ]]; then
   say "6. Sleep safety: discharge, then sleep. WAKE THE MAC (press a key) after ~20 s."
   policy "{\"enabled\":true,\"limit\":$((P - 3)),\"autoDischarge\":true,\"dischargeTolerance\":1,\"pauseWhenHot\":false}" >/dev/null
-  wait_for source_state 20 "Battery Power" || bad "didn't start discharging"
-  MARK="$(date '+%Y-%m-%d %H:%M:%S')"
+  wait_for source_state 20 "Battery Power" && ok "discharging before sleep" || bad "didn't start discharging"
+  BEFORE="$(field "$(status)" lastSleepAt)"
   sleep 2; pmset sleepnow >/dev/null; sleep 15
-  if log show --style compact --start "$MARK" --predicate 'eventMessage CONTAINS "kwikbatteryd: system will sleep"' 2>/dev/null \
-       | grep -q 'adapter switched back on: true'; then
-    ok "the helper switched the adapter on before sleeping"
+  S="$(status)"
+  AFTER="$(field "$S" lastSleepAt)"
+  if [[ -n "$AFTER" && "$AFTER" != "$BEFORE" ]]; then
+    [[ "$(field "$S" lastSleepAdapterOn)" == "true" ]] && ok "the helper switched the adapter back on before sleeping" \
+      || bad "the helper saw the sleep but the adapter wasn't confirmed on"
   else
-    bad "no 'adapter switched back on' log entry before sleep"
+    bad "the helper didn't see the sleep (lastSleepAt unchanged: '$AFTER')"
   fi
+  [[ "$(field "$S" mode)" == "discharge" ]] && ok "after waking it resumes the policy (discharge)" || echo "  note: after wake mode = $(field "$S" mode)"
 fi
 
 say "Restoring normal charging"

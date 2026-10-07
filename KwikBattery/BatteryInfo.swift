@@ -87,6 +87,12 @@ struct BatteryInfo: Equatable {
         return Double(max) / Double(design) * 100.0
     }
 
+    /// Energy a full battery holds today, in Wh: max capacity × voltage.
+    var fullChargeWh: Double? {
+        guard let mah = maxCapacity, mah > 0, let v = voltage, v.isFinite, v > 0 else { return nil }
+        return Double(mah) / 1000.0 * v
+    }
+
     /// Power at the battery's terminals in watts: voltage × current, signed
     /// (+ charging, − discharging). Both factors come from the same instant
     /// (see `applyLiveBattery`).

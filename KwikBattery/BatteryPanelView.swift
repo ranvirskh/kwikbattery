@@ -511,7 +511,7 @@ struct BatteryPanelView: View {
         } else {
             VStack(spacing: 5) {
                 ForEach(energy.apps) { app in
-                    EnergyRow(app: app, icon: energy.icon(for: app))
+                    EnergyRow(app: app, icon: energy.icon(for: app), systemWatts: monitor.info.systemLoadWatts)
                 }
             }
             .animation(budget.stage.transition, value: energy.apps.map { $0.id })
@@ -733,6 +733,14 @@ private struct EnergyRow: View {
     @EnvironmentObject private var budget: AnimationBudget
     let app: AppEnergyUsage
     let icon: NSImage
+    /// Whole-Mac power right now; with the app's share it gives the app's own watts.
+    var systemWatts: Double?
+
+    private var wattsText: String? {
+        guard let w = systemWatts, w.isFinite, w > 0 else { return nil }
+        let appWatts = w * app.percent / 100.0
+        return appWatts < 10 ? String(format: "%.1f W", appWatts) : String(format: "%.0f W", appWatts)
+    }
 
     private var tint: Color {
         if app.percent >= 40 { return Color.red }
@@ -753,6 +761,13 @@ private struct EnergyRow: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Spacer(minLength: 4)
+                    if let wattsText {
+                        Text(wattsText)
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.white.opacity(0.55))
+                            .help("Roughly how much of the Mac's power this app is using")
+                    }
                     Text("\(Int(app.percent.rounded()))%")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                         .monospacedDigit()

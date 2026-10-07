@@ -12,6 +12,7 @@ import AppKit
 struct EnergyHistoryView: View {
     @EnvironmentObject private var history: EnergyHistory
     @EnvironmentObject private var energy: AppEnergyMonitor
+    @EnvironmentObject private var monitor: BatteryMonitor
     @AppStorage(SettingsKey.trackEnergyHistory) private var trackEnergyHistory = SettingsDefault.trackEnergyHistory
 
     let onClose: () -> Void
@@ -53,7 +54,8 @@ struct EnergyHistoryView: View {
                 } else {
                     VStack(spacing: 6) {
                         ForEach(rankings.prefix(Self.maxRows)) { row in
-                            EnergyHistoryRow(ranking: row, icon: energy.icon(forAppPath: row.path))
+                            EnergyHistoryRow(ranking: row, icon: energy.icon(forAppPath: row.path),
+                                             fullChargeWh: monitor.info.fullChargeWh)
                         }
                     }
                 }
@@ -82,7 +84,8 @@ struct EnergyHistoryView: View {
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(Color.pink)
-                    .help("Energy the Mac used on battery in this period")
+                    .help("Energy the Mac used on battery in this period"
+                          + (EnergyLedger.batteryText(wh: total, fullChargeWh: monitor.info.fullChargeWh).map { " (\($0))" } ?? ""))
             }
         }
     }
@@ -134,6 +137,7 @@ struct EnergyHistoryView: View {
 private struct EnergyHistoryRow: View {
     let ranking: EnergyLedger.Ranking
     let icon: NSImage
+    var fullChargeWh: Double?
 
     private var percent: Double { ranking.shareOfTotal * 100 }
 
@@ -156,7 +160,8 @@ private struct EnergyHistoryRow: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Spacer(minLength: 4)
-                    Text(String(format: ranking.wh < 10 ? "%.2f Wh" : "%.1f Wh", ranking.wh))
+                    Text(EnergyLedger.batteryText(wh: ranking.wh, fullChargeWh: fullChargeWh)
+                         ?? String(format: ranking.wh < 10 ? "%.2f Wh" : "%.1f Wh", ranking.wh))
                         .font(.system(size: 10, weight: .medium, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(Color.white.opacity(0.55))

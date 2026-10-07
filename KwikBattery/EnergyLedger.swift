@@ -116,6 +116,23 @@ struct EnergyLedger: Codable, Equatable {
             .sorted { $0.wh != $1.wh ? $0.wh > $1.wh : $0.name < $1.name }
     }
 
+    // MARK: Battery share
+
+    /// `wh` as a fraction of a full battery (1.0 = one whole charge), or nil
+    /// when the battery's full-charge energy isn't known.
+    static func batteryFraction(wh: Double, fullChargeWh: Double?) -> Double? {
+        guard let full = fullChargeWh, full.isFinite, full > 0, wh.isFinite, wh >= 0 else { return nil }
+        return wh / full
+    }
+
+    /// "38% of battery", "<1% of battery", or "2.4 charges" once it's more than a full battery.
+    static func batteryText(wh: Double, fullChargeWh: Double?) -> String? {
+        guard let f = batteryFraction(wh: wh, fullChargeWh: fullChargeWh) else { return nil }
+        if f >= 1 { return String(format: "%.1f charges", f) }
+        if f < 0.01 { return "<1% of battery" }
+        return String(format: "%.0f%% of battery", f * 100)
+    }
+
     // MARK: Day keys
 
     /// Day keys are calendar dates. Arithmetic on them is done in UTC so a

@@ -22,6 +22,7 @@ enum UsageTracking {
         ChargeHistory.shared.load()
         DischargeSessionStore.shared.load()
         SleepDrainMonitor.shared.start()
+        LimitPayoffStore.shared.load()
 
         BatteryMonitor.shared.$info
             .dropFirst()
@@ -29,6 +30,7 @@ enum UsageTracking {
                 guard info.hasBattery else { return }
                 ChargeHistory.shared.record(info)
                 DischargeSessionStore.shared.update(info)
+                LimitPayoffStore.shared.sample(info)
             }
             .store(in: &cancellables)
 
@@ -77,7 +79,8 @@ final class ChargeHistory: ObservableObject {
 
     func record(_ info: BatteryInfo) {
         var updated = log
-        guard updated.record(percent: info.percentage, pluggedIn: info.isPluggedIn, at: Date()) else { return }
+        guard updated.record(percent: info.percentage, pluggedIn: info.isPluggedIn,
+                             celsius: info.temperatureCelsius, at: Date()) else { return }
         log = updated
         save()
     }

@@ -61,6 +61,7 @@ struct InsightsTests {
         hotGuardTests()
         statusTests()
         UsageInsightsTests.run()
+        FeatureTests.run()
 
         print("Insights tests: \(checks) checks, \(failures) failed")
         exit(failures == 0 ? 0 : 1)

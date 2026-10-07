@@ -15,6 +15,10 @@ struct KwikBatteryApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     init() {
+        // `KwikBattery --charge-limit 80`, `--low-power on`, `--helper-status`, … (see CommandLineTool).
+        if let code = CommandLineTool.run(CommandLine.arguments) {
+            exit(code)
+        }
         // `KwikBattery --smc-diag` prints live SMC readings and exits (used by build.sh).
         if CommandLine.arguments.contains("--idevice-diag") {
             print(BluetoothDeviceMonitor.diagnosticReport())
@@ -93,6 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        LimitPayoffStore.shared.flush()
         BatteryMonitor.shared.stop()
         BluetoothDeviceMonitor.shared.stop()
         AppEnergyMonitor.shared.setActive(false)

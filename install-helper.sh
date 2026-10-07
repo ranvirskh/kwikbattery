@@ -30,7 +30,7 @@ elif [[ -f "$HERE/Helper/main.swift" ]]; then
   SDK="$(xcrun --show-sdk-path --sdk macosx)"
   xcrun swiftc -O -swift-version 5 \
     -target "$(uname -m)-apple-macos14.0" -sdk "$SDK" \
-    "$HERE/Helper/main.swift" "$HERE/KwikBattery/ChargePolicy.swift" \
+    "$HERE/Helper/main.swift" "$HERE/KwikBattery/ChargePolicy.swift" "$HERE/KwikBattery/LowPowerPolicy.swift" \
     -o "$WORK/kwikbatteryd"
 else
   echo "Couldn't find the helper binary or its source next to this script."

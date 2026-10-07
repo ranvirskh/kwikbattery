@@ -81,7 +81,10 @@ final class EnergyHistory: ObservableObject {
         guard AppSettings.trackEnergyHistory, !isSampling else { return }
         let info = BatteryMonitor.shared.info
         guard info.hasBattery, !info.isPluggedIn,
-              let watts = info.systemLoadWatts, watts.isFinite, watts > 0 else { return }
+              let watts = info.systemLoadWatts, watts.isFinite, watts > 0 else {
+            AppEnergyAlertWatcher.shared.reset()      // plugged in: any streak is over
+            return
+        }
 
         let elapsed = now.timeIntervalSince(previous)
         let seconds = Swift.min(Swift.max(elapsed, 0), timerInterval)
@@ -101,6 +104,7 @@ final class EnergyHistory: ObservableObject {
                                systemLoadWatts: watts,
                                seconds: seconds)
             self.save()
+            AppEnergyAlertWatcher.shared.evaluate(apps: apps, systemWatts: watts, interval: self.timerInterval)
         }
     }
 

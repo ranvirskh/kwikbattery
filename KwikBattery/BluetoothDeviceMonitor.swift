@@ -205,35 +205,75 @@ final class BluetoothDeviceMonitor: ObservableObject {
 
     // MARK: - Loading (off the main actor)
 
+    /// The Bluetooth profile, the HID battery reads and the iPhone/iPad lookups
+    /// are independent, so they run together: a slow or unreachable phone (up to
+    /// ~25 s over Wi-Fi) can no longer hold up AirPods and keyboards.
     nonisolated static func loadDevices() async -> [BluetoothDevice] {
-        var devices = parseSystemProfiler(runSystemProfiler())
-        devices.append(contentsOf: readAppleMobileDevices())
-        for hid in readHIDDevices() {
-            let alreadyListed = devices.contains { $0.name.caseInsensitiveCompare(hid.name) == .orderedSame }
-            if !alreadyListed {
-                devices.append(hid)
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let parts = concurrently(3) { index -> [BluetoothDevice] in
+                    switch index {
+                    case 0:  return parseSystemProfiler(runSystemProfiler())
+                    case 1:  return readAppleMobileDevices()
+                    default: return readHIDDevices()
+                    }
+                }
+                var devices = parts[0] ?? []
+                devices.append(contentsOf: parts[1] ?? [])
+                for hid in parts[2] ?? [] {
+                    let alreadyListed = devices.contains { $0.name.caseInsensitiveCompare(hid.name) == .orderedSame }
+                    if !alreadyListed {
+                        devices.append(hid)
+                    }
+                }
+                continuation.resume(returning: devices.sorted {
+                    $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                })
             }
         }
-        return devices.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    nonisolated static func runSystemProfiler() -> Data? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/system_profiler")
-        process.arguments = ["SPBluetoothDataType", "-json"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        do {
-            try process.run()
-        } catch {
-            NSLog("KwikBattery: could not run system_profiler: \(error)")
-            return nil
+    /// Runs `work(0)` … `work(count - 1)` at the same time and returns their
+    /// results in order. Each call gets its own thread (these calls mostly wait
+    /// on a child process), so nesting it can't starve the pool the way
+    /// concurrentPerform would.
+    nonisolated static func concurrently<T>(_ count: Int, _ work: @escaping (Int) -> T) -> [T?] {
+        guard count > 0 else { return [] }
+        let box = ResultBox<T>(count)
+        let group = DispatchGroup()
+        for index in 0..<count {
+            group.enter()
+            DispatchQueue.global(qos: .utility).async {
+                box.set(index, work(index))
+                group.leave()
+            }
         }
-        // Read before waiting so a large output can't fill the pipe and deadlock.
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return process.terminationStatus == 0 ? data : nil
+        group.wait()
+        return box.values
+    }
+
+    final class ResultBox<T>: @unchecked Sendable {
+        private let lock = NSLock()
+        private var items: [T?]
+
+        init(_ count: Int) { items = Array(repeating: nil, count: count) }
+
+        func set(_ index: Int, _ value: T) {
+            lock.lock()
+            items[index] = value
+            lock.unlock()
+        }
+
+        var values: [T?] {
+            lock.lock()
+            defer { lock.unlock() }
+            return items
+        }
+    }
+
+    /// `system_profiler` normally answers in a second or two; 25 s is "stuck".
+    nonisolated static func runSystemProfiler() -> Data? {
+        runToolData("/usr/sbin/system_profiler", ["SPBluetoothDataType", "-json"], timeout: 25)
     }
 
     /// Expected shape (macOS 13+):
@@ -307,62 +347,99 @@ final class BluetoothDeviceMonitor: ObservableObject {
     nonisolated static func readAppleMobileDevices() -> [BluetoothDevice] {
         guard let idList = findTool("idevice_id"), let info = findTool("ideviceinfo") else { return [] }
 
-        var result: [BluetoothDevice] = []
+        // 1. List USB and Wi-Fi devices at the same time. Wi-Fi lookups go over
+        //    the network and are far slower than USB, so they get a longer budget.
+        let connections: [(flag: String, name: String, timeout: TimeInterval)] =
+            [("-l", "USB", 4), ("-n", "Wi-Fi", 8)]
+        let listings = concurrently(connections.count) { index in
+            runTool(idList, [connections[index].flag], timeout: connections[index].timeout) ?? ""
+        }
+
+        // A phone on USB is asked over USB first; one that is also visible over
+        // Wi-Fi is remembered, in case the USB answer fails.
+        var found: [(udid: String, connection: String)] = []
         var seen = Set<String>()
-        for (flag, connection) in [("-l", "USB"), ("-n", "Wi-Fi")] {
-            // Wi-Fi lookups go over the network and are far slower than USB,
-            // so they get a longer budget; 5 s was cutting them off entirely.
-            let isWireless = (connection == "Wi-Fi")
-            let listTimeout: TimeInterval = isWireless ? 8 : 4
-            let queryTimeout: TimeInterval = isWireless ? 15 : 6
-            let listing = runTool(idList, [flag], timeout: listTimeout) ?? ""
-            let udids = listing
+        var alsoWireless = Set<String>()
+        for (index, listing) in listings.enumerated() {
+            let udids = (listing ?? "")
                 .split(whereSeparator: \.isNewline)
-                .map { line -> String in
-                    guard let first = line.split(separator: " ").first else { return "" }
-                    return String(first)
-                }
+                .compactMap { line in line.split(separator: " ").first.map(String.init) }
                 .filter { !$0.isEmpty }
-
-            for udid in udids where !seen.contains(udid) {
-                var base = ["-u", udid]
-                if connection == "Wi-Fi" { base.insert("-n", at: 0) }
-
-                guard let batteryText = runTool(info, base + ["-q", "com.apple.mobile.battery"],
-                                                timeout: queryTimeout) else { continue }
-                let battery = parseKeyValues(batteryText)
-                guard let level = battery["BatteryCurrentCapacity"].flatMap({ Int($0) }) else { continue }
-
-                // Ask for each field by name: a bare `ideviceinfo` dumps the
-                // device's whole property list, which is slow and needlessly large.
-                func value(_ key: String) -> String {
-                    (runTool(info, base + ["-k", key], timeout: queryTimeout) ?? "")
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
+            for udid in udids {
+                if seen.insert(udid).inserted {
+                    found.append((udid, connections[index].name))
+                } else {
+                    alsoWireless.insert(udid)
                 }
-                let name = value("DeviceName")
-                let isPad = value("DeviceClass").lowercased().contains("ipad")
-                let productType = value("ProductType")
-                let modelName = AppleModelNames.name(forProductType: productType)
-                    ?? (isPad ? "iPad" : "iPhone")
-
-                // Lets the power-flow code label this USB port with the model name.
-                DeviceNameCache.shared.set(modelName, forSerial: udid)
-
-                seen.insert(udid)
-                var device = BluetoothDevice(id: "idevice-\(udid)",
-                                             name: name.isEmpty ? (isPad ? "iPad" : "iPhone") : name,
-                                             kind: .phone,
-                                             mainLevel: level,
-                                             leftLevel: nil,
-                                             rightLevel: nil,
-                                             caseLevel: nil)
-                device.isCharging = (battery["BatteryIsCharging"] ?? "").lowercased() == "true"
-                device.connection = connection
-                device.model = modelName
-                result.append(device)
             }
         }
-        return result
+        let targets = found
+        let wireless = alsoWireless
+
+        // 2. Ask every device at the same time (previously one after another).
+        let answers = concurrently(targets.count) { index in
+            queryMobileDevice(info: info, udid: targets[index].udid, connection: targets[index].connection)
+        }
+        var devices = answers.compactMap { $0 ?? nil }
+
+        // 3. A phone that didn't answer over USB gets one more try over Wi-Fi.
+        var retry: [String] = []
+        for (index, target) in targets.enumerated()
+        where (answers[index] ?? nil) == nil && target.connection == "USB" && wireless.contains(target.udid) {
+            retry.append(target.udid)
+        }
+        let retryList = retry
+        if !retryList.isEmpty {
+            let again = concurrently(retryList.count) { index in
+                queryMobileDevice(info: info, udid: retryList[index], connection: "Wi-Fi")
+            }
+            devices.append(contentsOf: again.compactMap { $0 ?? nil })
+        }
+        return devices
+    }
+
+    /// One iPhone or iPad's battery and names. The four reads are independent,
+    /// so they run together; nil if the battery can't be read.
+    nonisolated static func queryMobileDevice(info: String, udid: String, connection: String) -> BluetoothDevice? {
+        let isWireless = (connection == "Wi-Fi")
+        let timeout: TimeInterval = isWireless ? 15 : 6
+        var base = ["-u", udid]
+        if isWireless { base.insert("-n", at: 0) }
+
+        // Ask for each field by name: a bare `ideviceinfo` dumps the device's
+        // whole property list, which is slow and needlessly large.
+        let queries: [[String]] = [
+            base + ["-q", "com.apple.mobile.battery"],
+            base + ["-k", "DeviceName"],
+            base + ["-k", "DeviceClass"],
+            base + ["-k", "ProductType"],
+        ]
+        let answers = concurrently(queries.count) { runTool(info, queries[$0], timeout: timeout) }
+        guard let batteryText = answers[0] ?? nil else { return nil }
+        let battery = parseKeyValues(batteryText)
+        guard let level = battery["BatteryCurrentCapacity"].flatMap({ Int($0) }) else { return nil }
+
+        func text(_ index: Int) -> String {
+            ((answers[index] ?? nil) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let name = text(1)
+        let isPad = text(2).lowercased().contains("ipad")
+        let modelName = AppleModelNames.name(forProductType: text(3)) ?? (isPad ? "iPad" : "iPhone")
+
+        // Lets the power-flow code label this USB port with the model name.
+        DeviceNameCache.shared.set(modelName, forSerial: udid)
+
+        var device = BluetoothDevice(id: "idevice-\(udid)",
+                                     name: name.isEmpty ? (isPad ? "iPad" : "iPhone") : name,
+                                     kind: .phone,
+                                     mainLevel: level,
+                                     leftLevel: nil,
+                                     rightLevel: nil,
+                                     caseLevel: nil)
+        device.isCharging = (battery["BatteryIsCharging"] ?? "").lowercased() == "true"
+        device.connection = connection
+        device.model = modelName
+        return device
     }
 
     /// Are the optional libimobiledevice tools installed?
@@ -381,6 +458,11 @@ final class BluetoothDeviceMonitor: ObservableObject {
 
     /// Runs a command-line tool and returns its output (nil on failure / timeout).
     nonisolated static func runTool(_ path: String, _ arguments: [String], timeout: TimeInterval) -> String? {
+        runToolData(path, arguments, timeout: timeout).flatMap { String(data: $0, encoding: .utf8) }
+    }
+
+    /// Same, as raw bytes. A tool that ignores the polite stop is killed.
+    nonisolated static func runToolData(_ path: String, _ arguments: [String], timeout: TimeInterval) -> Data? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
         process.arguments = arguments
@@ -414,6 +496,9 @@ final class BluetoothDeviceMonitor: ObservableObject {
         }
         if process.isRunning {
             process.terminate()
+            let grace = Date().addingTimeInterval(0.5)
+            while process.isRunning && Date() < grace { Thread.sleep(forTimeInterval: 0.02) }
+            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
             return nil
         }
         // Give the reader a moment to pick up whatever is still buffered.
@@ -422,7 +507,7 @@ final class BluetoothDeviceMonitor: ObservableObject {
             Thread.sleep(forTimeInterval: 0.02)
         }
         guard process.terminationStatus == 0 else { return nil }
-        return String(data: collected.data, encoding: .utf8)
+        return collected.data
     }
 
     /// Thread-safe accumulator for a child process's output.

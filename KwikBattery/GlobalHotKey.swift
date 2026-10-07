@@ -8,9 +8,10 @@
 //
 
 import Carbon.HIToolbox
+import Combine
 
 @MainActor
-final class GlobalHotKey {
+final class GlobalHotKey: ObservableObject {
     static let shared = GlobalHotKey()
 
     /// Called on the main actor when the shortcut is pressed.
@@ -20,9 +21,14 @@ final class GlobalHotKey {
     private var handlerRef: EventHandlerRef?
     private var current: HotKeyChoice = .off
 
+    /// The shortcut that couldn't be registered because another app owns it.
+    @Published private(set) var failedChoice: HotKeyChoice?
+
     private init() {}
 
     func apply(_ choice: HotKeyChoice) {
+        // The warning belongs to the combination that failed; choosing another one (or Off) clears it.
+        if let failed = failedChoice, failed != choice { failedChoice = nil }
         guard choice != current else { return }
         unregister()
         current = choice
@@ -42,6 +48,7 @@ final class GlobalHotKey {
             NSLog("KwikBattery: couldn't register \(choice.title) (OSStatus \(status))")
             hotKeyRef = nil
             current = .off
+            failedChoice = choice
         }
     }
 

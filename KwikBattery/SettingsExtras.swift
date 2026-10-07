@@ -16,6 +16,7 @@ struct GeneralExtrasSettings: View {
     @AppStorage(SettingsKey.trackEnergyHistory) private var trackEnergyHistory = SettingsDefault.trackEnergyHistory
     @AppStorage(SettingsKey.openPanelHotKey) private var openPanelHotKey = SettingsDefault.openPanelHotKey
 
+    @ObservedObject private var hotKey = GlobalHotKey.shared
     @State private var confirmingReset = false
     @State private var exportMessage: String?
 
@@ -25,9 +26,11 @@ struct GeneralExtrasSettings: View {
                 Text(choice.title).tag(choice.rawValue)
             }
         }
-        Text("Works from any app. Needs no extra permissions. If another app already uses the combination, it won't register.")
+        Text(hotKey.failedChoice == nil
+             ? "Works from any app. Needs no extra permissions. If another app already uses the combination, it won't register."
+             : "Another app already uses that combination, so it didn't register. Pick a different one.")
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(hotKey.failedChoice == nil ? Color.secondary : Color.orange)
 
         Picker("Menu bar text", selection: $menuBarText) {
             ForEach(MenuBarTextMode.allCases) { mode in
@@ -122,6 +125,11 @@ struct NotificationExtrasSettings: View {
     @AppStorage(SettingsKey.sleepDrainPerHour) private var sleepDrainPerHour = SettingsDefault.sleepDrainPerHour
     @AppStorage(SettingsKey.notifyDeviceLow) private var notifyDeviceLow = SettingsDefault.notifyDeviceLow
     @AppStorage(SettingsKey.deviceLowThreshold) private var deviceLowThreshold = SettingsDefault.deviceLowThreshold
+    @AppStorage(SettingsKey.notifyAppEnergy) private var notifyAppEnergy = SettingsDefault.notifyAppEnergy
+    @AppStorage(SettingsKey.appEnergyWatts) private var appEnergyWatts = SettingsDefault.appEnergyWatts
+    @AppStorage(SettingsKey.ignoredEnergyApps) private var ignoredRaw = ""
+
+    private var ignoredCount: Int { ignoredRaw.split(separator: "\n").filter { !$0.isEmpty }.count }
 
     var body: some View {
         Toggle("Hot battery alert", isOn: $notifyHot)
@@ -167,6 +175,25 @@ struct NotificationExtrasSettings: View {
                       value: $deviceLowThreshold, range: 5...50, step: 5,
                       text: "\(Int(deviceLowThreshold))%")
             .disabled(!notifyDeviceLow)
+
+        Toggle("Alert when an app keeps draining the battery", isOn: $notifyAppEnergy)
+        labeledSlider(title: "Alert when an app uses more than",
+                      value: $appEnergyWatts, range: 3...25, step: 1,
+                      text: "\(Int(appEnergyWatts)) W")
+            .disabled(!notifyAppEnergy)
+        Text("On battery only, after an app has stayed above that for about 10 minutes. Uses the samples from Track app energy over time, so that must be on. The alert has buttons to quit the app or stop warning about it.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        if ignoredCount > 0 {
+            HStack {
+                Text("\(ignoredCount) app\(ignoredCount == 1 ? "" : "s") ignored")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Warn about them again") { ignoredRaw = "" }
+                .controlSize(.small)
+            }
+        }
     }
 
     private func labeledSlider(title: String, value: Binding<Double>, range: ClosedRange<Double>,

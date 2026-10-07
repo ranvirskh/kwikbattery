@@ -41,6 +41,11 @@ enum SettingsKey {
     static let notifyDeviceLow      = "notifyDeviceLow"
     static let deviceLowThreshold   = "deviceLowThreshold"       // percent (Double)
     static let openPanelHotKey      = "openPanelHotKey"          // HotKeyChoice raw value
+
+    // 1.11
+    static let notifyAppEnergy      = "notifyAppEnergy"
+    static let appEnergyWatts       = "appEnergyWatts"           // watts (Double)
+    static let ignoredEnergyApps    = "ignoredEnergyApps"        // app ids, one per line
 }
 
 enum SettingsDefault {
@@ -68,6 +73,8 @@ enum SettingsDefault {
     static let notifyDeviceLow      = true
     static let deviceLowThreshold   = 20.0
     static let openPanelHotKey      = HotKeyChoice.off.rawValue
+    static let notifyAppEnergy      = true
+    static let appEnergyWatts       = 8.0
 }
 
 enum AppSettings {
@@ -101,6 +108,8 @@ enum AppSettings {
             SettingsKey.notifyDeviceLow:     SettingsDefault.notifyDeviceLow,
             SettingsKey.deviceLowThreshold:  SettingsDefault.deviceLowThreshold,
             SettingsKey.openPanelHotKey:     SettingsDefault.openPanelHotKey,
+            SettingsKey.notifyAppEnergy:     SettingsDefault.notifyAppEnergy,
+            SettingsKey.appEnergyWatts:      SettingsDefault.appEnergyWatts,
         ])
     }
 
@@ -126,6 +135,17 @@ enum AppSettings {
     static var sleepDrainPerHour: Double { defaults.double(forKey: SettingsKey.sleepDrainPerHour) }
     static var notifyDeviceLow: Bool     { defaults.bool(forKey: SettingsKey.notifyDeviceLow) }
     static var deviceLowThreshold: Double { defaults.double(forKey: SettingsKey.deviceLowThreshold) }
+    static var notifyAppEnergy: Bool     { defaults.bool(forKey: SettingsKey.notifyAppEnergy) }
+    static var appEnergyWatts: Double    { defaults.double(forKey: SettingsKey.appEnergyWatts) }
+    /// App ids the user chose not to be warned about, one per line (a single
+    /// string, so Settings can watch it with @AppStorage).
+    static var ignoredEnergyApps: [String] {
+        (defaults.string(forKey: SettingsKey.ignoredEnergyApps) ?? "")
+            .split(separator: "\n").map(String.init).filter { !$0.isEmpty }
+    }
+    static func setIgnoredEnergyApps(_ ids: [String]) {
+        defaults.set(ids.joined(separator: "\n"), forKey: SettingsKey.ignoredEnergyApps)
+    }
     static var openPanelHotKey: HotKeyChoice {
         HotKeyChoice(rawValue: defaults.string(forKey: SettingsKey.openPanelHotKey) ?? "") ?? .off
     }

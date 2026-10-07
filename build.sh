@@ -25,7 +25,7 @@ MODE="${1:-}"
 
 APP_NAME="KwikBattery"
 BUNDLE_ID="com.kwikbattery.KwikBattery"
-VERSION="1.10.0"
+VERSION="1.11.0"
 BUILD_NUMBER="1"
 MIN_MACOS="14.0"
 
@@ -134,7 +134,7 @@ if [[ "$MODE" == "--test" ]]; then
     -swift-version 5 \
     -target "$(uname -m)-apple-macos$MIN_MACOS" \
     -sdk "$SDK" \
-    "$SRC/ChargePolicy.swift" Tests/ChargePolicyTests.swift \
+    "$SRC/ChargePolicy.swift" "$SRC/LowPowerPolicy.swift" Tests/ChargePolicyTests.swift \
     -o "$TEST_OUT/policy-tests"
   echo "==> Compiling insights tests"
   xcrun swiftc \
@@ -143,8 +143,9 @@ if [[ "$MODE" == "--test" ]]; then
     -target "$(uname -m)-apple-macos$MIN_MACOS" \
     -sdk "$SDK" \
     "$SRC/BatteryInfo.swift" "$SRC/BatteryInsights.swift" "$SRC/EnergyLedger.swift" \
-    "$SRC/UsageInsights.swift" \
-    Tests/InsightsTests.swift Tests/UsageInsightsTests.swift \
+    "$SRC/UsageInsights.swift" "$SRC/ChargePolicy.swift" "$SRC/LowPowerPolicy.swift" \
+    "$SRC/HealthForecast.swift" "$SRC/LimitPayoff.swift" "$SRC/AppEnergyAlerts.swift" \
+    Tests/InsightsTests.swift Tests/UsageInsightsTests.swift Tests/FeatureTests.swift \
     -o "$TEST_OUT/insights-tests"
   echo "==> Running"
   TEST_STATUS=0
@@ -193,7 +194,7 @@ echo "==> Compiling charge-control helper (optional)"
 # without it, and Settings → Charge control simply won't offer to install it.
 helper_arch() {  # $1 = arch, $2 = output
   xcrun swiftc -O -swift-version 5 -target "$1-apple-macos$MIN_MACOS" -sdk "$SDK" \
-    Helper/main.swift "$SRC/ChargePolicy.swift" -o "$2"
+    Helper/main.swift "$SRC/ChargePolicy.swift" "$SRC/LowPowerPolicy.swift" -o "$2"
 }
 HELPER_OK=1
 if [[ "$MODE" == "--release" ]]; then

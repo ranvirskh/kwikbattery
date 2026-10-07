@@ -16,6 +16,15 @@ struct ChargePoint: Codable, Equatable {
     let time: Date
     let percent: Int
     let pluggedIn: Bool
+    /// Battery temperature, when the Mac reported one (absent in older files).
+    let celsius: Double?
+
+    init(time: Date, percent: Int, pluggedIn: Bool, celsius: Double? = nil) {
+        self.time = time
+        self.percent = percent
+        self.pluggedIn = pluggedIn
+        self.celsius = celsius
+    }
 }
 
 /// The battery percentage over the last two days. A point is stored whenever
@@ -27,17 +36,23 @@ struct ChargeLog: Codable, Equatable {
 
     private(set) var points: [ChargePoint] = []
 
+    /// A temperature move of this many degrees is worth a point of its own.
+    static let temperatureStep = 2.0
+
     /// Returns true when a point was stored.
     @discardableResult
-    mutating func record(percent: Int, pluggedIn: Bool, at time: Date) -> Bool {
+    mutating func record(percent: Int, pluggedIn: Bool, celsius: Double? = nil, at time: Date) -> Bool {
         // The clock went backwards: anything "after" now can't be trusted.
         points.removeAll { $0.time > time }
+        let temperature = (celsius?.isFinite ?? false) ? celsius : nil
         if let last = points.last,
            last.percent == percent, last.pluggedIn == pluggedIn,
            time.timeIntervalSince(last.time) < Self.heartbeat {
-            return false
+            var moved = false
+            if let t = temperature, let lastT = last.celsius { moved = abs(t - lastT) >= Self.temperatureStep }
+            if !moved { return false }
         }
-        points.append(ChargePoint(time: time, percent: percent, pluggedIn: pluggedIn))
+        points.append(ChargePoint(time: time, percent: percent, pluggedIn: pluggedIn, celsius: temperature))
         let cutoff = time.addingTimeInterval(-Self.keep)
         points.removeAll { $0.time < cutoff }
         return true
@@ -66,6 +81,34 @@ struct ChargeLog: Codable, Equatable {
             spans.append(DateInterval(start: opened, end: end))
         }
         return spans
+    }
+}
+
+// MARK: - Temperature trend
+
+enum TemperatureTrend {
+    struct Summary: Equatable {
+        let lowest: Double
+        let highest: Double
+        let highestAt: Date
+        /// Minutes at or above the hot limit, counting each reading until the next
+        /// one (a gap longer than `ChargeLog.heartbeat` × 1.5 counts only that much).
+        let minutesHot: Int
+    }
+
+    /// nil when fewer than two readings carry a temperature.
+    static func summary(_ points: [ChargePoint], hotLimit: Double, until end: Date) -> Summary? {
+        let readings = points.compactMap { p in p.celsius.map { (time: p.time, c: $0) } }
+        guard readings.count >= 2,
+              let low = readings.map(\.c).min(),
+              let top = readings.max(by: { $0.c < $1.c }) else { return nil }
+        let cap = ChargeLog.heartbeat * 1.5
+        var hotSeconds = 0.0
+        for (i, r) in readings.enumerated() where r.c >= hotLimit {
+            let next = i + 1 < readings.count ? readings[i + 1].time : end
+            hotSeconds += Swift.min(Swift.max(next.timeIntervalSince(r.time), 0), cap)
+        }
+        return Summary(lowest: low, highest: top.c, highestAt: top.time, minutesHot: Int((hotSeconds / 60).rounded()))
     }
 }
 
@@ -253,8 +296,9 @@ enum CSV {
     }
 
     static func charge(_ log: ChargeLog) -> String {
-        make(header: ["time", "percent", "plugged_in"],
-             rows: log.points.map { [isoFormatter.string(from: $0.time), "\($0.percent)", $0.pluggedIn ? "yes" : "no"] })
+        make(header: ["time", "percent", "plugged_in", "temperature_c"],
+             rows: log.points.map { [isoFormatter.string(from: $0.time), "\($0.percent)",
+                                     $0.pluggedIn ? "yes" : "no", number($0.celsius, places: 1)] })
     }
 }
 

@@ -38,6 +38,7 @@ struct SettingsView: View {
         Form {
             generalSection
             ChargeControlSection()
+            LowPowerSection()
             notificationsSection
             aboutSection
         }

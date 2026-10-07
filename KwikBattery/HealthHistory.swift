@@ -93,6 +93,13 @@ final class HealthHistory: ObservableObject {
         return latest.cycleCount - earliest.cycleCount
     }
 
+    /// Where health is heading, or nil until there are about three weeks of readings.
+    var forecast: HealthForecast.Result? {
+        HealthForecast.forecast(snapshots.map {
+            HealthForecast.Reading(date: $0.date, health: $0.healthPercent, cycles: $0.cycleCount)
+        })
+    }
+
     /// Plain-language summary, or nil while there's too little data to be honest.
     var summary: String? {
         guard snapshots.count >= 2, let latest = snapshots.last, let first = snapshots.first else { return nil }

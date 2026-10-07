@@ -11,6 +11,7 @@ import SwiftUI
 
 struct ChargeControlSection: View {
     @ObservedObject private var control = ChargeControl.shared
+    @ObservedObject private var payoff = LimitPayoffStore.shared
 
     var body: some View {
         Section {
@@ -59,7 +60,7 @@ struct ChargeControlSection: View {
 
     private var helperUpdate: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("A newer charge-control helper is available. App updates don't replace the helper, so install the new one to get pausing charging when the battery is hot.")
+            Text("A newer charge-control helper is available. App updates don't replace the helper, so install the new one to get scheduled Low Power Mode.")
                 .font(.callout)
             HStack {
                 Button(control.installing ? "Updating…" : "Update Helper…") { control.installHelper() }
@@ -86,6 +87,14 @@ struct ChargeControlSection: View {
             }
             if let error = s.error {
                 Text(error).font(.caption).foregroundStyle(.orange)
+            }
+            if control.config.enabled, let line = payoff.weekLine {
+                Text(line).font(.caption).foregroundStyle(.secondary)
+                if let lifetime = payoff.lifetimeLine {
+                    Text(lifetime).font(.caption).foregroundStyle(.secondary)
+                }
+                Text("Less time near 100% is gentler on the battery. This counts only time the limit actually held it back while plugged in.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             if s.chargeKey == nil && s.adapterKey == nil {
                 Text("This Mac doesn't expose a charge-control switch, so charge control isn't available here. Run  kwikbatteryd --keys CH  and open an issue with the output.")

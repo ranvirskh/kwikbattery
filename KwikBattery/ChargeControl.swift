@@ -62,6 +62,14 @@ final class ChargeControl: ObservableObject {
     private var timer: Timer?
     private var defaultsObserver: AnyCancellable?
     private var pushTask: DispatchWorkItem?
+    /// When the user last changed a setting here. A status reply that was already
+    /// in flight must not overwrite an edit that is only seconds old.
+    private var lastEdit = Date.distantPast
+    /// A policy just copied from the helper. The Settings view reacts to that
+    /// change by pushing the config; this lets that one echo be skipped.
+    private var adoptedPolicy: ChargePolicyConfig?
+    /// Identifies the newest push, so an older one finishing can't clear it.
+    private var pushToken = UUID()
     private let io = DispatchQueue(label: "com.kwikbattery.helper.client")
 
     func start() {
@@ -88,7 +96,10 @@ final class ChargeControl: ObservableObject {
     }
 
     /// True when the helper is installed and will pause charging when the battery is hot.
-    var pausesWhenHot: Bool { reachable && !helperOutdated && config.pauseWhenHot }
+    var pausesWhenHot: Bool { reachable && (status?.version ?? 0) >= 2 && config.pauseWhenHot }
+
+    /// True when the installed helper can run Low Power Mode on a schedule.
+    var supportsLowPower: Bool { reachable && (status?.version ?? 0) >= 3 }
 
     /// An installed helper older than this app expects: it keeps working, but
     /// lacks newer features (like the heat pause) until it's reinstalled.
@@ -109,19 +120,35 @@ final class ChargeControl: ObservableObject {
         status = s
         if let s, !loadedFromHelper {
             loadedFromHelper = true
+            adoptedPolicy = s.policy
             config = s.policy
             syncHotLimit()
+        } else if let s, pushTask == nil, Date().timeIntervalSince(lastEdit) > 6, s.policy != config {
+            // Changed from outside the app (the command line, Shortcuts): the
+            // helper's copy is the truth, as long as nothing of ours is waiting to be sent.
+            adoptedPolicy = s.policy
+            config = s.policy
         }
     }
 
     /// Sends the edited settings to the helper (debounced so sliders don't flood it).
     func pushConfig() {
         guard loadedFromHelper else { return }
+        if let adopted = adoptedPolicy {
+            adoptedPolicy = nil
+            if config == adopted { return }       // the helper's own settings coming back: nothing to send
+        }
+        lastEdit = Date()
         pushTask?.cancel()
         let snapshot = config
+        let token = UUID()
+        pushToken = token
         let work = DispatchWorkItem { [weak self] in
             let s = HelperSocket.send(HelperRequest(cmd: "setPolicy", policy: snapshot))
-            DispatchQueue.main.async { self?.apply(s) }
+            DispatchQueue.main.async {
+                if self?.pushToken == token { self?.pushTask = nil }
+                self?.apply(s)
+            }
         }
         pushTask = work
         io.asyncAfter(deadline: .now() + 0.4, execute: work)
@@ -137,6 +164,11 @@ final class ChargeControl: ObservableObject {
 
     func restoreNormalCharging() {
         send(HelperRequest(cmd: "restore"))
+    }
+
+    /// Switches Low Power Mode on or off now (needs the helper; it runs `pmset`).
+    func setLowPower(_ on: Bool) {
+        send(HelperRequest(cmd: "setLowPower", lowPower: on))
     }
 
     private func send(_ request: HelperRequest) {

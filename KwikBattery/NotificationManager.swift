@@ -58,6 +58,15 @@ final class NotificationManager: ObservableObject {
 
     func setUp() {
         center.delegate = presenter
+        // Buttons on the "app is draining the battery" alert.
+        let quit = UNNotificationAction(identifier: AppEnergyAlertWatcher.quitAction,
+                                        title: "Quit App", options: [])
+        let ignore = UNNotificationAction(identifier: AppEnergyAlertWatcher.ignoreAction,
+                                          title: "Don't Warn About This App", options: [])
+        center.setNotificationCategories([
+            UNNotificationCategory(identifier: AppEnergyAlertWatcher.categoryID,
+                                   actions: [quit, ignore], intentIdentifiers: [], options: [])
+        ])
         requestAuthorization()
     }
 
@@ -202,7 +211,13 @@ final class NotificationManager: ObservableObject {
             didNotifyWeakCharger = false
             return
         }
-        guard AppSettings.notifyWeakCharger, ChargerCheck.adapterCannotKeepUp(info) else {
+        // KwikBattery's own automatic discharge runs the Mac on the battery on
+        // purpose; that is not a weak charger.
+        // Macs without a "stop charging" switch hold the limit the same way.
+        let helper = ChargeControl.shared.status
+        let dischargingOnPurpose = ChargeControl.shared.reachable
+            && (helper?.mode == .discharge || (helper?.emulatedHold == true && helper?.mode != .normal))
+        guard AppSettings.notifyWeakCharger, !dischargingOnPurpose, ChargerCheck.adapterCannotKeepUp(info) else {
             weakChargerStartedAt = nil
             return
         }
@@ -250,8 +265,9 @@ final class NotificationManager: ObservableObject {
 
     /// For alerts raised elsewhere (sleep drain, Bluetooth devices). Same
     /// delivery as the built-in ones; the caller owns the once-per-episode rule.
-    func deliver(id: String, title: String, body: String) {
-        post(id: id, title: title, body: body)
+    func deliver(id: String, title: String, body: String,
+                 category: String? = nil, userInfo: [String: String] = [:]) {
+        post(id: id, title: title, body: body, category: category, userInfo: userInfo)
     }
 
     func sendTestNotification() {
@@ -260,11 +276,14 @@ final class NotificationManager: ObservableObject {
              body: "You'll see battery alerts like this one.")
     }
 
-    private func post(id: String, title: String, body: String) {
+    private func post(id: String, title: String, body: String,
+                      category: String? = nil, userInfo: [String: String] = [:]) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
+        if let category { content.categoryIdentifier = category }
+        if !userInfo.isEmpty { content.userInfo = userInfo }
 
         let request = UNNotificationRequest(identifier: "com.kwikbattery.\(id)", content: content, trigger: nil)
         center.add(request) { error in
@@ -279,5 +298,19 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .list, .sound])
+    }
+
+    /// A button on a notification was pressed (currently only the app energy alert).
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        let action = response.actionIdentifier
+        let info = response.notification.request.content.userInfo
+        let appID = info["appID"] as? String
+        let appPath = info["appPath"] as? String
+        Task { @MainActor in
+            AppEnergyAlertWatcher.shared.handle(action: action, appID: appID, appPath: appPath)
+        }
+        completionHandler()
     }
 }

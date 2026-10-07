@@ -34,6 +34,18 @@ If you'd rather not use Terminal:
 Note which rows look wrong, and take screenshots if you can.
 
 
+## 2b. New in 1.11
+
+| # | What to check | Expected |
+|---|---|---|
+| 8 | Click the big percentage, then **Temperature** | A temperature line with your hot limit dashed; tiles for coolest, warmest and time hot. (Needs a few hours of history.) |
+| 9 | Click the Health tile | After ~3 weeks of readings, a line like "Falling about 1.5% a month. On this trend it reaches 80% around …". |
+| 10 | Settings › Notifications › app energy alert | Toggle and slider work. Burn CPU in one app on battery for ~10 minutes: an alert with Quit App and Don't Warn buttons. |
+| 11 | Settings › Charge control (helper installed, a limit set) | A "Held below full for … h this week" line appears after the limit has held for a minute. |
+| 12 | Settings › Low Power Mode (helper version 3) | Add hours covering now, with "Only while on battery" off: Low Power Mode switches on within ~10 s, and off when the window ends. |
+| 13 | Terminal: `~/Applications/KwikBattery.app/Contents/MacOS/KwikBattery --charge-limit current` | Prints "Charge limit set to NN%." and Settings shows it within seconds. |
+| 14 | `bash Tests/helper-live-test.sh --schedule` | Hold, discharge, heat, top-up, schedule and Low Power Mode checks all PASS (it restores your settings). |
+
 ## If your iPhone doesn't appear
 
 Wi-Fi device lookups need **System Settings › Privacy & Security › Local Network**

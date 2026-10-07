@@ -13,8 +13,11 @@ struct ChargeTimelineView: View {
     @EnvironmentObject private var monitor: BatteryMonitor
     @ObservedObject private var history = ChargeHistory.shared
     @ObservedObject private var sleep = SleepDrainMonitor.shared
+    @ObservedObject private var payoff = LimitPayoffStore.shared
 
     let onClose: () -> Void
+
+    @State private var showTemperature = false
 
     private static let window: TimeInterval = 24 * 60 * 60
 
@@ -24,6 +27,7 @@ struct ChargeTimelineView: View {
         let points = history.log.points(from: start, to: now)
         let spans = history.log.pluggedSpans(from: start, to: now)
         let tint = monitor.info.levelColor
+        let hasTemperatures = points.filter { $0.celsius != nil }.count >= 2
 
         VStack(alignment: .leading, spacing: 8) {
             header
@@ -31,9 +35,28 @@ struct ChargeTimelineView: View {
             if points.count < 2 {
                 collecting
             } else {
-                chart(points: points, spans: spans, start: start, now: now, tint: tint)
-                    .frame(height: 110)
-                stats(points: points, spans: spans)
+                if hasTemperatures { metricPicker }
+                if showTemperature && hasTemperatures {
+                    temperatureChart(points: points, spans: spans, start: start, now: now)
+                        .frame(height: 110)
+                    temperatureStats(points: points, now: now)
+                } else {
+                    chart(points: points, spans: spans, start: start, now: now, tint: tint)
+                        .frame(height: 110)
+                    stats(points: points, spans: spans)
+                }
+            }
+
+            if let line = payoff.weekLine {
+                HStack(spacing: 5) {
+                    Image(systemName: "gauge.with.dots.needle.33percent")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Color.green)
+                    Text(line)
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.6))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             if let report = sleep.recentReport {
@@ -75,6 +98,77 @@ struct ChargeTimelineView: View {
                 .font(.system(size: 15, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(monitor.info.levelColor)
+        }
+    }
+
+    private var metricPicker: some View {
+        Picker("", selection: $showTemperature) {
+            Text("Charge").tag(false)
+            Text("Temperature").tag(true)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .controlSize(.small)
+    }
+
+    private func displayTemperature(_ celsius: Double) -> Double {
+        AppSettings.useFahrenheit ? celsius * 9.0 / 5.0 + 32.0 : celsius
+    }
+
+    private func temperatureChart(points: [ChargePoint], spans: [DateInterval],
+                                  start: Date, now: Date) -> some View {
+        let readings = points.filter { $0.celsius != nil }
+        let limit = displayTemperature(AppSettings.hotThreshold)
+        let values = readings.map { displayTemperature($0.celsius ?? 0) }
+        let low = Swift.min(values.min() ?? limit, limit) - 2
+        let high = Swift.max(values.max() ?? limit, limit) + 2
+        return Chart {
+            ForEach(spans, id: \.start) { span in
+                RectangleMark(xStart: .value("Plugged in", span.start),
+                              xEnd: .value("Unplugged", span.end),
+                              yStart: .value("Bottom", low),
+                              yEnd: .value("Top", high))
+                    .foregroundStyle(Color.green.opacity(0.13))
+            }
+            RuleMark(y: .value("Hot limit", limit))
+                .foregroundStyle(Color.orange.opacity(0.7))
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+            ForEach(readings, id: \.time) { point in
+                LineMark(x: .value("Time", point.time),
+                         y: .value("Temperature", displayTemperature(point.celsius ?? 0)))
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(Color.orange)
+                    .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+            }
+        }
+        .chartXScale(domain: start...now)
+        .chartYScale(domain: low...high)
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .hour, count: 6)) { _ in
+                AxisGridLine().foregroundStyle(Color.white.opacity(0.07))
+                AxisValueLabel(format: .dateTime.hour())
+                    .foregroundStyle(Color.white.opacity(0.4))
+            }
+        }
+        .chartYAxis {
+            AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { _ in
+                AxisGridLine().foregroundStyle(Color.white.opacity(0.07))
+                AxisValueLabel()
+                    .foregroundStyle(Color.white.opacity(0.4))
+            }
+        }
+    }
+
+    private func temperatureStats(points: [ChargePoint], now: Date) -> some View {
+        let summary = TemperatureTrend.summary(points, hotLimit: AppSettings.hotThreshold, until: now)
+        let fahrenheit = AppSettings.useFahrenheit
+        return HStack(spacing: 6) {
+            tile(title: "Coolest",
+                 value: summary.map { Format.temperature(celsius: $0.lowest, fahrenheit: fahrenheit) } ?? "—")
+            tile(title: "Warmest",
+                 value: summary.map { Format.temperature(celsius: $0.highest, fahrenheit: fahrenheit) } ?? "—")
+            tile(title: "Time hot",
+                 value: summary.map { Format.duration(minutes: $0.minutesHot) } ?? "—")
         }
     }
 

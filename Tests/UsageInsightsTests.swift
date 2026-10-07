@@ -209,7 +209,7 @@ enum UsageInsightsTests {
         log.record(percent: 50, pluggedIn: false, at: t0)          // 2026-09-21 14:13:20 UTC
         log.record(percent: 51, pluggedIn: true, at: at(minutes: 1))
         equal(CSV.charge(log),
-              "time,percent,plugged_in\n2026-09-21T14:13:20Z,50,no\n2026-09-21T14:14:20Z,51,yes\n",
+              "time,percent,plugged_in,temperature_c\n2026-09-21T14:13:20Z,50,no,\n2026-09-21T14:14:20Z,51,yes,\n",
               "charge CSV")
     }
 

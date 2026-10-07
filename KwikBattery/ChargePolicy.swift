@@ -61,6 +61,9 @@ struct ChargePolicyConfig: Codable, Equatable {
     var pauseWhenHot = true
     /// The app keeps this equal to its Hot battery alert threshold.
     var hotLimitCelsius = 40.0
+    /// Scheduled Low Power Mode (LowPowerPolicy.swift). Lives here so the helper
+    /// has a single settings file and the app a single sync path.
+    var lowPower = LowPowerConfig()
 
     init() {}
 
@@ -77,6 +80,7 @@ struct ChargePolicyConfig: Codable, Equatable {
         topUpWindowMinutes = try c.decodeIfPresent(Int.self, forKey: .topUpWindowMinutes) ?? d.topUpWindowMinutes
         pauseWhenHot = try c.decodeIfPresent(Bool.self, forKey: .pauseWhenHot) ?? d.pauseWhenHot
         hotLimitCelsius = try c.decodeIfPresent(Double.self, forKey: .hotLimitCelsius) ?? d.hotLimitCelsius
+        lowPower = try c.decodeIfPresent(LowPowerConfig.self, forKey: .lowPower) ?? d.lowPower
     }
 
     /// The same settings with every value forced into a safe range.
@@ -87,6 +91,7 @@ struct ChargePolicyConfig: Codable, Equatable {
         c.dischargeTolerance = min(max(dischargeTolerance, 1), 10)
         c.topUpWindowMinutes = min(max(topUpWindowMinutes, 30), 1440)
         c.hotLimitCelsius = hotLimitCelsius.isFinite ? min(max(hotLimitCelsius, 30), 50) : 40
+        c.lowPower = lowPower.sanitized
         c.schedules = schedules.map { s in
             var s = s
             s.targetPercent = min(max(s.targetPercent, 50), 100)
@@ -289,7 +294,8 @@ struct PolicyEngine {
 // MARK: - App ⇄ helper messages
 
 struct HelperRequest: Codable {
-    /// "status", "setPolicy", "topUpNow", "cancelTopUp", "restore", "simulateHeat"
+    /// "status", "setPolicy", "topUpNow", "cancelTopUp", "restore", "simulateHeat",
+    /// "setLowPower"
     var cmd: String
     var policy: ChargePolicyConfig?
     var target: Int?
@@ -297,6 +303,8 @@ struct HelperRequest: Codable {
     /// (0 or nil clears it). It can only ever raise the reading, so at worst it
     /// pauses charging early; it can never hide a real hot battery.
     var temperature: Double?
+    /// setLowPower: switch Low Power Mode on (true) or off (false) right now.
+    var lowPower: Bool?
 }
 
 struct HelperStatus: Codable {
@@ -305,7 +313,8 @@ struct HelperStatus: Codable {
     /// the in-app updater replaces the app but not the root helper.
     ///   1  charge limit, discharge, top-ups (first release)
     ///   2  pause charging when hot; reports temperature and hotPaused
-    static let currentVersion = 2
+    ///   3  scheduled Low Power Mode; setLowPower command
+    static let currentVersion = 3
 
     var version = HelperStatus.currentVersion
     var percent: Int?
@@ -329,6 +338,11 @@ struct HelperStatus: Codable {
     var lastSleepAdapterOn: Bool?
     /// True while a simulateHeat test value is raising the temperature.
     var simulatedHeat: Bool?
+    /// True while Low Power Mode is on because the helper's schedule or charge
+    /// level turned it on (nil on a helper older than version 3).
+    var lowPowerManaged: Bool?
+    /// Low Power Mode as the helper last read it (nil = never read or unreadable).
+    var lowPowerOn: Bool?
     var error: String?
     var policy = ChargePolicyConfig()
 }

@@ -36,6 +36,7 @@ struct HealthHistoryView: View {
                 chart
                     .frame(height: 130)
                 insights
+                if let forecast = history.forecast { forecastRow(forecast) }
             }
 
             if let summary = history.summary {
@@ -156,6 +157,23 @@ struct HealthHistoryView: View {
                         value: history.cyclesAdded(overDays: 30).map { "+\($0)" } ?? "—")
             insightTile(title: "Tracked",
                         value: "\(history.daysTracked)d")
+        }
+    }
+
+    private func forecastRow(_ forecast: HealthForecast.Result) -> some View {
+        var text = HealthForecast.summary(forecast)
+        if let per100 = forecast.percentPer100Cycles, per100 < -0.05 {
+            text += String(format: " About %.1f%% lost per 100 cycles.", abs(per100))
+        }
+        return HStack(alignment: .top, spacing: 6) {
+            Image(systemName: "chart.line.downtrend.xyaxis")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color.purple)
+                .padding(.top, 1)
+            Text(text)
+                .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                .foregroundStyle(Color.white.opacity(0.75))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

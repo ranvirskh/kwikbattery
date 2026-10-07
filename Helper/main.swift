@@ -252,6 +252,94 @@ enum Sensors {
     }
 }
 
+// MARK: - Low Power Mode plumbing
+
+enum LowPowerFiles {
+    static let state = HelperPaths.policyDirectory + "/lowpower-state.json"
+    /// What Low Power Mode was set to per power source before we turned it on.
+    static let prior = HelperPaths.policyDirectory + "/lowpower-prior.json"
+}
+
+struct PriorLowPower: Codable, Equatable {
+    var battery: Bool?
+    var ac: Bool?
+}
+
+/// Runs a tool and returns its output; nil on failure or after `timeout` seconds.
+/// Short on purpose: it runs on the controller queue, and the app gives up on a
+/// silent helper after 3 seconds.
+func runTool(_ path: String, _ args: [String], timeout: TimeInterval = 2.5) -> String? {
+    let p = Process()
+    p.executableURL = URL(fileURLWithPath: path)
+    p.arguments = args
+    let pipe = Pipe()
+    p.standardOutput = pipe
+    p.standardError = FileHandle.nullDevice
+    do { try p.run() } catch { return nil }
+    let box = DataBox()
+    let group = DispatchGroup()
+    group.enter()
+    DispatchQueue.global(qos: .utility).async {
+        box.set(pipe.fileHandleForReading.readDataToEndOfFile())
+        group.leave()
+    }
+    let deadline = Date().addingTimeInterval(timeout)
+    while p.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
+    if p.isRunning {
+        p.terminate()
+        Thread.sleep(forTimeInterval: 0.3)
+        if p.isRunning { kill(p.processIdentifier, SIGKILL) }
+        return nil
+    }
+    _ = group.wait(timeout: .now() + 1)
+    return p.terminationStatus == 0 ? String(data: box.get(), encoding: .utf8) : nil
+}
+
+final class DataBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data = Data()
+    func set(_ d: Data) { lock.lock(); data = d; lock.unlock() }
+    func get() -> Data { lock.lock(); defer { lock.unlock() }; return data }
+}
+
+func loadPriorLowPower() -> PriorLowPower? {
+    guard let d = try? Data(contentsOf: URL(fileURLWithPath: LowPowerFiles.prior)) else { return nil }
+    return try? JSONDecoder().decode(PriorLowPower.self, from: d)
+}
+
+func clearPriorLowPower() {
+    try? FileManager.default.removeItem(atPath: LowPowerFiles.prior)
+}
+
+/// Switches Low Power Mode with `pmset`. Turning it on first remembers the
+/// per-source values ("Only on Battery" is battery on / charger off), and
+/// `restoreSaved` puts exactly those back instead of flattening both to off.
+@discardableResult
+func switchLowPower(_ on: Bool, restoreSaved: Bool = false) -> Bool {
+    let pmset = "/usr/bin/pmset"
+    if on {
+        if loadPriorLowPower() == nil, let out = runTool(pmset, ["-g", "custom"]) {
+            let found = LowPowerEngine.parsePmsetCustom(out)
+            try? FileManager.default.createDirectory(atPath: HelperPaths.policyDirectory,
+                                                     withIntermediateDirectories: true)
+            if let d = try? JSONEncoder().encode(PriorLowPower(battery: found.battery, ac: found.ac)) {
+                try? d.write(to: URL(fileURLWithPath: LowPowerFiles.prior), options: .atomic)
+            }
+        }
+        return runTool(pmset, ["-a", "lowpowermode", "1"]) != nil
+    }
+    if restoreSaved, let prior = loadPriorLowPower(), prior.battery != nil || prior.ac != nil {
+        var ok = true
+        if let b = prior.battery { ok = (runTool(pmset, ["-b", "lowpowermode", b ? "1" : "0"]) != nil) && ok }
+        if let c = prior.ac { ok = (runTool(pmset, ["-c", "lowpowermode", c ? "1" : "0"]) != nil) && ok }
+        if ok { clearPriorLowPower() }
+        return ok
+    }
+    let ok = runTool(pmset, ["-a", "lowpowermode", "0"]) != nil
+    if ok { clearPriorLowPower() }
+    return ok
+}
+
 // MARK: - Controller
 
 final class Controller {
@@ -259,7 +347,7 @@ final class Controller {
     private let smc = SMC()
     private var chargeSwitch: SMCSwitch?
     private var adapterSwitch: SMCSwitch?
-    private var engine = PolicyEngine()
+    private var engine = PolicyEngine(calendar: .autoupdatingCurrent)
     private var status = HelperStatus()
     private var inhibitWanted = false
     private var adapterOffWanted = false
@@ -267,6 +355,11 @@ final class Controller {
     private var broken: String?
     /// Test hook (simulateHeat): a minimum temperature until `expires`.
     private var simulatedHeat: (celsius: Double, expires: Date)?
+    /// autoupdatingCurrent: a root daemon runs for weeks, and the schedule
+    /// must follow the Mac across time zones and daylight saving changes.
+    private var lowPower = LowPowerEngine(calendar: .autoupdatingCurrent)
+    /// After a failed `pmset`, wait this long before trying again.
+    private var lowPowerRetryAfter = Date.distantPast
 
     init() {
         chargeSwitch = Candidates.firstAvailable(Candidates.chargeInhibit, in: smc)
@@ -276,6 +369,7 @@ final class Controller {
         if !smc.isOpen { broken = "Couldn't open the SMC." }
         else if chargeSwitch == nil && adapterSwitch == nil { broken = "This Mac doesn't expose a known charge-control key." }
         loadPolicy()
+        loadLowPowerState()
         restoreNormal()           // always start from a known state
         tick()
     }
@@ -286,6 +380,22 @@ final class Controller {
         if let data = try? Data(contentsOf: URL(fileURLWithPath: HelperPaths.policyFile)),
            let cfg = try? JSONDecoder().decode(ChargePolicyConfig.self, from: data) {
             engine.config = cfg.sanitized
+        }
+    }
+
+    private func loadLowPowerState() {
+        lowPower.config = engine.config.lowPower
+        if let data = try? Data(contentsOf: URL(fileURLWithPath: LowPowerFiles.state)),
+           let state = try? JSONDecoder().decode(LowPowerEngine.State.self, from: data) {
+            lowPower = LowPowerEngine(config: lowPower.config, calendar: .autoupdatingCurrent, state: state)
+        }
+    }
+
+    private func saveLowPowerState() {
+        try? FileManager.default.createDirectory(atPath: HelperPaths.policyDirectory,
+                                                 withIntermediateDirectories: true)
+        if let data = try? JSONEncoder().encode(lowPower.state) {
+            try? data.write(to: URL(fileURLWithPath: LowPowerFiles.state), options: .atomic)
         }
     }
 
@@ -421,6 +531,56 @@ final class Controller {
         status.error = broken
         status.emulatedHold = (chargeSwitch == nil && adapterSwitch != nil) ? true : nil
         status.policy = engine.config
+        runLowPower(percent: reading.percent, pluggedIn: pluggedIn)
+    }
+
+    // MARK: Low Power Mode
+
+    /// Decides (cheaply: no process unless the wish changes) and applies Low Power Mode.
+    private func runLowPower(percent: Int, pluggedIn: Bool) {
+        lowPower.config = engine.config.lowPower
+        defer { status.lowPowerManaged = lowPower.state.weTurnedOn }
+        guard Date() >= lowPowerRetryAfter else { return }
+
+        let before = lowPower.state
+        let action = lowPower.decide(percent: percent, pluggedIn: pluggedIn, now: Date()) {
+            self.readLowPower()
+        }
+        if action != .none {
+            let ok = switchLowPower(action == .enable, restoreSaved: action == .disable)
+            NSLog("kwikbatteryd: Low Power Mode \(action == .enable ? "on" : "off"): \(ok ? "done" : "pmset failed, will retry")")
+            if ok {
+                status.lowPowerOn = (action == .enable)
+            } else {
+                // Undo the bookkeeping so the same action is attempted again.
+                lowPower.confirm(action, ok: false)
+                lowPowerRetryAfter = Date().addingTimeInterval(60)
+                if action == .enable { clearPriorLowPower() }   // nothing was changed, so nothing to put back
+            }
+        }
+        // Ownership ended without us switching it off (the user already had): drop the saved values.
+        if before.weTurnedOn && !lowPower.state.weTurnedOn && action != .disable { clearPriorLowPower() }
+        if lowPower.state != before { saveLowPowerState() }
+    }
+
+    /// `pmset -g`'s lowpowermode flag, nil if it can't be read.
+    private func readLowPower() -> Bool? {
+        guard let out = runTool("/usr/bin/pmset", ["-g"]) else { return nil }
+        let value = LowPowerEngine.parsePmset(out)
+        status.lowPowerOn = value
+        return value
+    }
+
+    /// Gives back Low Power Mode if the helper turned it on (stopping, or the
+    /// setting being turned off). If `pmset` fails the claim is kept, so the
+    /// next start (or the next tick) tries again instead of forgetting it.
+    func releaseLowPower() {
+        if lowPower.state.weTurnedOn, !switchLowPower(false, restoreSaved: true) {
+            saveLowPowerState()
+            return
+        }
+        _ = lowPower.release()
+        saveLowPowerState()
     }
 
     // MARK: Requests
@@ -433,6 +593,7 @@ final class Controller {
                 savePolicy()
                 broken = (smc.isOpen && (chargeSwitch != nil || adapterSwitch != nil)) ? nil : broken   // a new policy retries
                 if !engine.config.enabled { restoreNormal() }
+                if !engine.config.lowPower.enabled { releaseLowPower() }
             }
         case "topUpNow":
             engine.startTopUp(target: req.target ?? 100, now: Date())
@@ -443,6 +604,15 @@ final class Controller {
                 simulatedHeat = (min(t, 90), Date().addingTimeInterval(120))
             } else {
                 simulatedHeat = nil
+            }
+        case "setLowPower":
+            if let on = req.lowPower {
+                lowPower.userChangedSystemState()      // their choice; we no longer own it
+                if runTool("/usr/bin/pmset", ["-a", "lowpowermode", on ? "1" : "0"]) != nil {
+                    status.lowPowerOn = on
+                    clearPriorLowPower()               // their value is the new baseline
+                }
+                saveLowPowerState()
             }
         case "restore":
             restoreNormal()
@@ -624,6 +794,13 @@ case "--restore":
     let smc = SMC()
     if let a = Candidates.firstAvailable(Candidates.adapterOff, in: smc) { print("adapter on: \(smc.set(a, on: false))") }
     if let c = Candidates.firstAvailable(Candidates.chargeInhibit, in: smc) { print("charging allowed: \(smc.set(c, on: false))") }
+    // Low Power Mode, if the helper turned it on and was stopped before giving it back.
+    if let data = try? Data(contentsOf: URL(fileURLWithPath: LowPowerFiles.state)),
+       let state = try? JSONDecoder().decode(LowPowerEngine.State.self, from: data), state.weTurnedOn {
+        let ok = switchLowPower(false, restoreSaved: true)
+        print("Low Power Mode given back: \(ok)")
+        if ok { try? FileManager.default.removeItem(atPath: LowPowerFiles.state) }
+    }
 case "--daemon":
     guard geteuid() == 0 else { print("kwikbatteryd must run as root (it is started by launchd)."); exit(1) }
     let controller = Controller()
@@ -641,7 +818,7 @@ case "--daemon":
     for sig in [SIGTERM, SIGINT, SIGHUP] {
         signal(sig, SIG_IGN)
         let s = DispatchSource.makeSignalSource(signal: sig, queue: controller.queue)
-        s.setEventHandler { controller.restoreNormal(); unlink(HelperPaths.socket); exit(0) }
+        s.setEventHandler { controller.restoreNormal(); controller.releaseLowPower(); unlink(HelperPaths.socket); exit(0) }
         s.resume()
         sources.append(s)
     }

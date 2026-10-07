@@ -485,6 +485,12 @@ enum FeatureTests {
         equal(LowPowerEngine.parsePmset(" powermode            1\n"), true, "newer macOS: powermode 1")
         equal(LowPowerEngine.parsePmset(" powermode            2\n"), false, "High Power Mode isn't Low Power Mode")
         equal(LowPowerEngine.parsePmset(" powermode 0\n lowpowermode 1\n"), true, "lowpowermode wins when both are printed")
+        near(EnergyLedger.batteryFraction(wh: 5, fullChargeWh: 50) ?? -1, 0.1, "5 Wh of a 50 Wh battery")
+        check(EnergyLedger.batteryFraction(wh: 5, fullChargeWh: nil) == nil, "unknown capacity: nil")
+        check(EnergyLedger.batteryFraction(wh: 5, fullChargeWh: 0) == nil, "zero capacity: nil")
+        equal(EnergyLedger.batteryText(wh: 19, fullChargeWh: 50), "38% of battery", "38% text")
+        equal(EnergyLedger.batteryText(wh: 0.2, fullChargeWh: 50), "<1% of battery", "<1% text")
+        equal(EnergyLedger.batteryText(wh: 120, fullChargeWh: 50), "2.4 charges", "more than one charge")
         let newCustom = LowPowerEngine.parsePmsetCustom("Battery Power:\n powermode 1\nAC Power:\n powermode 0\n")
         check(newCustom.battery == true && newCustom.ac == false, "per-source powermode")
     }

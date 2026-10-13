@@ -95,12 +95,26 @@ enum AccessoryPowerReader {
         let sortedDevices = usbDevices.sorted { $0.milliamps > $1.milliamps }
         let canPairByRank = !sortedDevices.isEmpty && sortedDevices.count == sortedPorts.count
 
+        // Strategy 3: monitors on a port don't enumerate as USB devices, but the
+        // port's DisplayPort transport carries the monitor's name. An iPhone that
+        // isn't trusted for data doesn't enumerate either; if exactly one powered
+        // port is still unexplained, it gets the known iPhone/iPad model name.
+        let displayNames = readDisplayNamesByPort()
+        let unclaimedPorts = sortedPorts.filter {
+            devices(onPort: $0.index, offset: bestOffset).isEmpty && displayNames[$0.index] == nil
+        }.count
+        let unclaimedPhone = DeviceNameCache.shared.mobileDeviceNames().first
+
         return sortedPorts.enumerated().map { rank, port in
             var name = "USB-C Port \(port.index)"
             let onPort = devices(onPort: port.index, offset: bestOffset)
                 .sorted { $0.milliamps > $1.milliamps }
             if let primary = onPort.first {
                 name = onPort.count > 1 ? "\(primary.displayName) + \(onPort.count - 1) more" : primary.displayName
+            } else if let display = displayNames[port.index] {
+                name = display
+            } else if let phone = unclaimedPhone, unclaimedPorts == 1 {
+                name = phone
             } else if canPairByRank {
                 name = sortedDevices[rank].displayName
             }
@@ -110,6 +124,30 @@ enum AccessoryPowerReader {
                                     isEstimate: false,
                                     portIndex: port.index)
         }
+    }
+
+    /// Monitor names keyed by the Mac's USB-C port number, read from each
+    /// port's DisplayPort transport ("ProductName" + "ParentPortNumber").
+    static func readDisplayNamesByPort() -> [Int: String] {
+        var iterator: io_iterator_t = 0
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOPortTransportStateDisplayPort"), &iterator) == KERN_SUCCESS else {
+            return [:]
+        }
+        defer { IOObjectRelease(iterator) }
+
+        var result: [Int: String] = [:]
+        while case let service = IOIteratorNext(iterator), service != 0 {
+            defer { IOObjectRelease(service) }
+            var properties: Unmanaged<CFMutableDictionary>?
+            guard IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0) == KERN_SUCCESS,
+                  let dict = properties?.takeRetainedValue() as? [String: Any],
+                  (dict["Active"] as? Bool) != false,
+                  let port = number(dict["ParentPortNumber"]),
+                  let name = (dict["ProductName"] as? String)?.trimmingCharacters(in: .whitespaces),
+                  !name.isEmpty else { continue }
+            result[port] = name
+        }
+        return result
     }
 
     private static func number(_ value: Any?) -> Int? {

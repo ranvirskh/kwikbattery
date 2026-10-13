@@ -145,7 +145,7 @@ struct BatteryPanelView: View {
             let lower = baseName.lowercased()
             let isAppleMobile = lower.contains("iphone") || lower.contains("ipad")
             if let index = list.firstIndex(where: { device in
-                (isAppleMobile && device.kind == .phone && device.connection == "USB")
+                (isAppleMobile && device.kind == .phone)
                     || device.name.lowercased() == lower
                     || device.model?.lowercased() == lower
             }) {

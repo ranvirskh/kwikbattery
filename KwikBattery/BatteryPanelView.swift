@@ -878,7 +878,7 @@ private struct DeviceRow: View {
         }
         .padding(.vertical, 3)
         .opacity(isStale ? 0.45 : 1)
-        .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { now = $0 }
+        .onReceive(Timer.publish(every: 30, tolerance: 10, on: .main, in: .common).autoconnect()) { now = $0 }
     }
 
     @ViewBuilder

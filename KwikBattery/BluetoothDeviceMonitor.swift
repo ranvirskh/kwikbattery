@@ -138,7 +138,7 @@ final class BluetoothDeviceMonitor: ObservableObject {
 
     private func scheduleScan(every interval: TimeInterval) {
         timerCancellable?.cancel()
-        timerCancellable = Timer.publish(every: interval, on: .main, in: .common)
+        timerCancellable = Timer.publish(every: interval, tolerance: interval * 0.2, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.refresh() }
     }

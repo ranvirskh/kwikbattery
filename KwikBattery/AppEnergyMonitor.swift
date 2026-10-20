@@ -49,7 +49,7 @@ final class AppEnergyMonitor: ObservableObject {
             // Every sample forks `top`, which costs far more than any drawing
             // in the panel, so keep it infrequent (and slower again in Low Power).
             let interval: TimeInterval = AppSettings.lowPowerMode ? 30 : 15
-            timer = Timer.publish(every: interval, on: .main, in: .common)
+            timer = Timer.publish(every: interval, tolerance: interval * 0.2, on: .main, in: .common)
                 .autoconnect()
                 .sink { [weak self] _ in self?.sample() }
         } else {

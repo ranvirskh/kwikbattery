@@ -95,7 +95,7 @@ final class BatteryMonitor: ObservableObject {
 
     private func schedulePolling() {
         pollCancellable?.cancel()
-        pollCancellable = Timer.publish(every: isLive ? liveRate : idleRate, on: .main, in: .common)
+        pollCancellable = Timer.publish(every: isLive ? liveRate : idleRate, tolerance: (isLive ? liveRate : idleRate) * 0.2, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.refresh() }
     }

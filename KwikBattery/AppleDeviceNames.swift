@@ -76,4 +76,11 @@ final class DeviceNameCache: @unchecked Sendable {
         defer { lock.unlock() }
         return names[AppleModelNames.normalizeSerial(serial)]
     }
+
+    /// Distinct model names of the iPhones / iPads seen so far.
+    func mobileDeviceNames() -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return Array(Set(names.values)).sorted()
+    }
 }

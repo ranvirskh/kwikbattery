@@ -145,7 +145,7 @@ struct BatteryPanelView: View {
             let lower = baseName.lowercased()
             let isAppleMobile = lower.contains("iphone") || lower.contains("ipad")
             if let index = list.firstIndex(where: { device in
-                (isAppleMobile && device.kind == .phone && device.connection == "USB")
+                (isAppleMobile && device.kind == .phone)
                     || device.name.lowercased() == lower
                     || device.model?.lowercased() == lower
             }) {
@@ -878,7 +878,7 @@ private struct DeviceRow: View {
         }
         .padding(.vertical, 3)
         .opacity(isStale ? 0.45 : 1)
-        .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { now = $0 }
+        .onReceive(Timer.publish(every: 30, tolerance: 10, on: .main, in: .common).autoconnect()) { now = $0 }
     }
 
     @ViewBuilder

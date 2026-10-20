@@ -75,9 +75,12 @@ final class ChargeControl: ObservableObject {
     func start() {
         guard timer == nil else { return }
         poll()
-        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+        let t = Timer(timeInterval: 5, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.poll() }
         }
+        t.tolerance = 1.5   // lets the system batch this wake-up with others
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
         // The helper pauses charging at the Hot battery alert's temperature, so
         // a change to that slider is passed on.
         defaultsObserver = NotificationCenter.default

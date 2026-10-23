@@ -15,6 +15,7 @@
 //
 
 import AppKit
+import CryptoKit
 import Foundation
 
 @MainActor
@@ -219,6 +220,16 @@ final class UpdateChecker: ObservableObject {
                     state = .failed("Download failed")
                     return
                 }
+                state = .downloading(progress: 0.5)
+
+                // The release must carry a signature made with the developer's private key (<zip>.sig). A code signature
+                // alone proves nothing for an ad-hoc signed app, so this is what ties the download to the developer.
+                let (sigData, sigResponse) = try await URLSession.shared.data(from: URL(string: url.absoluteString + ".sig")!, delegate: Self.redirectGuard)
+                guard (sigResponse as? HTTPURLResponse)?.statusCode == 200,
+                      Self.isValidSignature(sigData, forFile: temporaryFile) else {
+                    state = .failed("The download's signature didn't check out, so it was not installed")
+                    return
+                }
                 state = .downloading(progress: 0.7)
 
                 let installed = try await Task.detached(priority: .userInitiated) {
@@ -230,6 +241,18 @@ final class UpdateChecker: ObservableObject {
                 state = .failed(error.localizedDescription)
             }
         }
+    }
+
+    /// Public half of the update-signing key (Ed25519). The private half stays with the developer.
+    nonisolated static let updatePublicKey = "D2Eq1mttqvPDVEozu4blb3EE7JV6NMSvFSvnYgTW1U4="
+
+    /// True when `signature` (base64 text) is a valid signature of the file's bytes under `updatePublicKey`.
+    nonisolated static func isValidSignature(_ signature: Data, forFile file: URL, publicKey: String = updatePublicKey) -> Bool {
+        guard let keyBytes = Data(base64Encoded: publicKey), let key = try? Curve25519.Signing.PublicKey(rawRepresentation: keyBytes),
+              let text = String(data: signature, encoding: .utf8),
+              let sig = Data(base64Encoded: text.trimmingCharacters(in: .whitespacesAndNewlines)),
+              let bytes = try? Data(contentsOf: file, options: .mappedIfSafe) else { return false }
+        return key.isValidSignature(sig, for: bytes)
     }
 
     /// Unzips, validates and replaces the running bundle. Runs off the main actor.

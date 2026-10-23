@@ -658,12 +658,16 @@ func serve(controller: Controller) {
             guard getpeereid(client, &uid, &gid) == 0, uid == 0 || uid == consoleUID() else {
                 close(client); continue
             }
-            var tv = timeval(tv_sec: 2, tv_usec: 0)
+            var tv = timeval(tv_sec: 1, tv_usec: 0)
             setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+            setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
 
+            // One request line, read within 3 seconds in total: a client that trickles bytes cannot keep the
+            // (single-threaded) server busy, because each read is capped at 1 s and the whole request at 3 s.
+            let deadline = Date().addingTimeInterval(3)
             var data = Data()
             var byte: UInt8 = 0
-            while data.count < 65536, read(client, &byte, 1) == 1, byte != 0x0A { data.append(byte) }
+            while data.count < 65536, Date() < deadline, read(client, &byte, 1) == 1, byte != 0x0A { data.append(byte) }
 
             let response: HelperStatus
             if let req = try? JSONDecoder().decode(HelperRequest.self, from: data) {

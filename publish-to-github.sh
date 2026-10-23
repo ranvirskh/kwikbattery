@@ -68,6 +68,14 @@ echo "==> Building the universal release"
 bash build.sh --release
 ZIP="release/KwikBattery-$VERSION.zip"
 
+# The in-app updater only installs a zip whose signature (<zip>.sig) checks out against the public key in UpdateChecker.swift.
+SIGN_KEY="${KWIKBATTERY_SIGNING_KEY:-$HOME/.kwikbattery/update-signing.key}"
+if [[ ! -f "$SIGN_KEY" ]]; then
+  echo "Missing update-signing key: $SIGN_KEY (create one with: swift sign-update.swift keygen \"$SIGN_KEY\")"
+  exit 1
+fi
+swift sign-update.swift sign "$SIGN_KEY" "$ZIP"
+
 NOTES="## Install in one step (recommended)
 
 Open **Terminal** (press ⌘-Space, type *Terminal*, press Return), paste this and press Return:
@@ -118,10 +126,10 @@ macOS quarantines anything downloaded through a browser and won't launch it unle
 
 if gh release view "v$VERSION" --repo "$OWNER/$REPO_NAME" >/dev/null 2>&1; then
   echo "==> Updating release v$VERSION"
-  gh release upload "v$VERSION" "$ZIP" --clobber --repo "$OWNER/$REPO_NAME"
+  gh release upload "v$VERSION" "$ZIP" "$ZIP.sig" --clobber --repo "$OWNER/$REPO_NAME"
 else
   echo "==> Publishing release v$VERSION"
-  gh release create "v$VERSION" "$ZIP" --repo "$OWNER/$REPO_NAME" \
+  gh release create "v$VERSION" "$ZIP" "$ZIP.sig" --repo "$OWNER/$REPO_NAME" \
     --title "KwikBattery $VERSION" --notes "$NOTES"
 fi
 
